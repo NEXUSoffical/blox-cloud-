@@ -550,11 +550,11 @@
 
             </div>
 
-            <!-- Stripe Security & Payment Trust Footer -->
+            <!-- Lemon Squeezy Security & Payment Trust Footer -->
             <div class="pt-3 border-t border-blue-500/30 flex flex-wrap items-center justify-between text-xs text-blue-200">
                 <div class="flex items-center space-x-2">
-                    <i class="fa-brands fa-stripe text-3xl text-indigo-400"></i>
-                    <span class="text-[11px] text-blue-300">Official Stripe Checkout • 256-Bit SSL Encrypted • Card, Apple Pay & Google Pay</span>
+                    <span class="text-xl">🍋</span>
+                    <span class="text-[11px] text-blue-300 font-medium">Powered by <strong>Lemon Squeezy</strong> • Merchant of Record • Global Sales Tax & EU VAT Handled Automatically</span>
                 </div>
                 <div class="flex items-center space-x-3 text-sm text-blue-300">
                     <i class="fa-brands fa-cc-visa text-blue-400"></i>
@@ -562,6 +562,7 @@
                     <i class="fa-brands fa-cc-amex text-cyan-400"></i>
                     <i class="fa-brands fa-apple-pay text-white"></i>
                     <i class="fa-brands fa-google-pay text-white"></i>
+                    <i class="fa-brands fa-paypal text-cyan-300"></i>
                 </div>
             </div>
 
@@ -575,44 +576,45 @@
         </div>
     </div>
 
-    <!-- Modal: Stripe Configuration & Test Mode Helper -->
-    <div id="stripeConfigModal" class="hidden fixed inset-0 bg-[#020b1f]/85 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+    <!-- Modal: Lemon Squeezy Configuration & Test Mode Helper -->
+    <div id="lemonConfigModal" class="hidden fixed inset-0 bg-[#020b1f]/85 backdrop-blur-lg z-50 flex items-center justify-center p-4">
         <div class="glass-panel bg-[#0b1739]/95 border border-blue-400/50 w-full max-w-lg rounded-2xl p-6 space-y-5 shadow-2xl shadow-blue-600/30">
             <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center text-xl shadow-md shadow-indigo-500/30">
-                        <i class="fa-brands fa-stripe"></i>
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-500 to-amber-600 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/30">
+                        <span>🍋</span>
                     </div>
                     <div>
-                        <h3 class="font-extrabold text-white text-base">Stripe Payments Setup</h3>
-                        <p class="text-xs text-blue-200">Connect your Stripe account to collect live subscription revenue.</p>
+                        <h3 class="font-extrabold text-white text-base">Lemon Squeezy Payments</h3>
+                        <p class="text-xs text-blue-200">Collect global revenue with automated VAT & sales tax compliance.</p>
                     </div>
                 </div>
-                <button onclick="closeStripeConfigModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="closeLemonConfigModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
             <div class="space-y-3.5 text-xs text-blue-200">
                 <p>
-                    To enable <strong>live customer credit card payments</strong> on BloxCloud, add your Stripe Secret Key to Render:
+                    To enable <strong>live customer payments</strong>, you can connect your free Lemon Squeezy store:
                 </p>
                 <div class="p-3.5 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2 font-mono text-[11px]">
-                    <div class="text-cyan-300 font-bold font-sans text-xs">Steps in Render:</div>
-                    <div class="text-slate-300">1. Go to <span class="text-white font-bold">dashboard.render.com</span> → <span class="text-white">blox-cloud-</span> → <span class="text-white">Environment</span></div>
-                    <div class="text-slate-300">2. Add Environment Variable:</div>
-                    <div class="p-2 rounded bg-black/40 border border-blue-500/20 text-cyan-300">
-                        Key: <strong>STRIPE_SECRET_KEY</strong><br>
-                        Value: <strong>sk_live_...</strong> (or <strong>sk_test_...</strong>)
+                    <div class="text-cyan-300 font-bold font-sans text-xs">Steps in Render (dashboard.render.com):</div>
+                    <div class="text-slate-300">1. Create a free account at <span class="text-white font-bold">lemonsqueezy.com</span></div>
+                    <div class="text-slate-300">2. In your <span class="text-white">blox-cloud-</span> Web Service → <span class="text-white">Environment</span>, add your Lemon Squeezy checkout link or API key:</div>
+                    <div class="p-2 rounded bg-black/40 border border-blue-500/20 text-cyan-300 space-y-1">
+                        <div>Key: <strong>LEMONSQUEEZY_PRO_URL</strong> (e.g. your Pro checkout link)</div>
+                        <div>Key: <strong>LEMONSQUEEZY_STUDIO_URL</strong></div>
+                        <div>Key: <strong>LEMONSQUEEZY_ENTERPRISE_URL</strong></div>
                     </div>
                     <div class="text-slate-300">3. Click <span class="text-white font-bold">Save Changes</span>.</div>
                 </div>
 
                 <div class="pt-2 flex items-center justify-between gap-3">
-                    <a href="https://dashboard.stripe.com/apikeys" target="_blank" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center space-x-1.5 transition-all shadow-md shadow-indigo-600/30">
+                    <a href="https://app.lemonsqueezy.com/register" target="_blank" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold flex items-center space-x-1.5 transition-all shadow-md shadow-amber-500/30">
                         <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                        <span>Get Stripe API Key</span>
+                        <span>Sign Up for Lemon Squeezy</span>
                     </a>
                     <button id="btnSandboxUpgrade" onclick="activateSandboxPlan()" class="px-3.5 py-2 rounded-xl bg-blue-950/70 hover:bg-blue-900/60 border border-blue-500/30 text-cyan-300 font-bold transition-all">
-                        ⚡ Activate in Test/Sandbox Mode
+                        ⚡ Activate in Test Mode
                     </button>
                 </div>
             </div>
@@ -794,7 +796,7 @@
                     currentUser = data.user;
                     updateUserUI();
                     document.getElementById('authModal').classList.add('hidden');
-                    await checkStripeCallback();
+                    await checkPaymentCallback();
                 } else {
                     localStorage.removeItem('bloxcloud_token');
                     authToken = '';
@@ -1034,19 +1036,19 @@ end)`;
             document.getElementById('billingModal').classList.add('hidden');
         }
 
-        function closeStripeConfigModal() {
-            document.getElementById('stripeConfigModal').classList.add('hidden');
+        function closeLemonConfigModal() {
+            document.getElementById('lemonConfigModal').classList.add('hidden');
         }
 
-        function showStripeConfigModal(planId) {
+        function showLemonConfigModal(planId) {
             pendingPlanSelection = planId;
-            document.getElementById('stripeConfigModal').classList.remove('hidden');
+            document.getElementById('lemonConfigModal').classList.remove('hidden');
         }
 
         async function activateSandboxPlan() {
             if (!pendingPlanSelection) return;
             const planId = pendingPlanSelection;
-            closeStripeConfigModal();
+            closeLemonConfigModal();
 
             try {
                 const res = await fetch(`${API}/billing/subscribe`, {
@@ -1058,7 +1060,7 @@ end)`;
                 if (data.success) {
                     currentUser.plan = planId;
                     updateUserUI();
-                    alert(`⚡ [Test Mode] Activated the ${planId} Tier! Once you add STRIPE_SECRET_KEY in Render, live card checkouts will process via Stripe.`);
+                    alert(`⚡ [Test Mode] Activated the ${planId} Tier! Once you add your Lemon Squeezy checkout link or API key in Render, live card & PayPal checkouts will process via Lemon Squeezy.`);
                     openBillingModal();
                 } else {
                     alert(`Failed to activate plan: ${data.error}`);
@@ -1090,10 +1092,10 @@ end)`;
                 return;
             }
 
-            // Stripe Checkout for PRO, STUDIO, ENTERPRISE
+            // Lemon Squeezy Checkout for PRO, STUDIO, ENTERPRISE
             const btn = document.getElementById(`btnPlan${planId}`);
             const originalText = btn ? btn.innerHTML : '';
-            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Starting Stripe...`;
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Connecting Lemon Squeezy...`;
 
             try {
                 const res = await fetch(`${API}/billing/checkout-session`, {
@@ -1105,11 +1107,11 @@ end)`;
                 if (btn) btn.innerHTML = originalText;
 
                 if (data.success && data.url) {
-                    // Redirect to official Stripe secure checkout page
+                    // Redirect to Lemon Squeezy hosted checkout page
                     window.location.href = data.url;
                 } else if (data.requiresConfig) {
-                    // Stripe key not added yet in Render Environment
-                    showStripeConfigModal(planId);
+                    // Lemon Squeezy not yet configured in Render Environment
+                    showLemonConfigModal(planId);
                 } else {
                     alert(`Unable to start checkout: ${data.error || 'Check server configuration'}`);
                 }
@@ -1119,33 +1121,34 @@ end)`;
             }
         }
 
-        async function checkStripeCallback() {
+        async function checkPaymentCallback() {
             const params = new URLSearchParams(window.location.search);
-            const sessionId = params.get('session_id');
             const status = params.get('status');
+            const plan = params.get('plan');
 
-            if (sessionId && status === 'success') {
+            if (status === 'success' && plan) {
                 try {
-                    const res = await fetch(`${API}/billing/verify-session`, {
+                    const res = await fetch(`${API}/billing/subscribe`, {
                         method: 'POST',
                         headers: getAuthHeaders(),
-                        body: JSON.stringify({ sessionId })
+                        body: JSON.stringify({ planId: plan, paymentMethod: 'LEMON_SQUEEZY_CHECKOUT' })
                     });
                     const data = await res.json();
                     if (data.success) {
-                        currentUser.plan = data.planId;
+                        currentUser.plan = plan;
                         updateUserUI();
-                        alert(`🎉 Stripe Payment Verified! Welcome to the BloxCloud ${data.planId} Tier.`);
+                        alert(`🎉 Payment Verified! Welcome to the BloxCloud ${plan} Tier.`);
                         window.history.replaceState({}, document.title, window.location.pathname);
                         openBillingModal();
                     }
                 } catch (e) {
-                    console.error('Failed to verify Stripe session:', e);
+                    console.error('Failed to activate plan after redirect:', e);
                 }
             } else if (status === 'cancelled') {
-                alert('Stripe checkout was cancelled. You have not been charged.');
+                alert('Checkout was cancelled. You have not been charged.');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+        }
         }
 
         async function refreshData() {

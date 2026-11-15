@@ -149,22 +149,45 @@ app.post('/api/v1/billing/checkout-session', async (req, res) => {
     res.json(result);
 });
 
-// Verify & Activate Session after Stripe Redirect
-app.post('/api/v1/billing/verify-session', async (req, res) => {
-    const user = getAuthUser(req);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+// Lemon Squeezy Webhook Listener
+app.post('/api/v1/billing/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    try {
+        const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+        const signature = req.headers['x-signature'];
+        const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
 
-    const { sessionId } = req.body;
-    if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
+        if (secret && !billing.verifyWebhookSignature(rawBody, signature, secret)) {
+            return res.status(401).json({ error: 'Invalid webhook signature' });
+        }
 
-    const result = await billing.verifyAndActivateSession(sessionId);
-    if (!result.success) {
-        return res.status(400).json(result);
+        const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const eventName = payload.meta && payload.meta.event_name;
+        const customData = payload.meta && payload.meta.custom_data;
+
+        if (customData && customData.user_id && customData.plan_id) {
+            const userId = customData.user_id;
+            const planId = customData.plan_id;
+
+            if (eventName === 'subscription_created' || eventName === 'order_created' || eventName === 'subscription_updated') {
+                auth.updateUserPlan(userId, planId);
+                const user = db.findUserById(userId);
+                if (user) {
+                    billing.createSubscription(user, planId, 'LEMON_SQUEEZY');
+                }
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId });
+                console.log(`[BloxCloud LemonSqueezy] User ${userId} upgraded to ${planId}`);
+            } else if (eventName === 'subscription_cancelled' || eventName === 'subscription_expired') {
+                auth.updateUserPlan(userId, 'FREE');
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' });
+                console.log(`[BloxCloud LemonSqueezy] User ${userId} subscription cancelled`);
+            }
+        }
+
+        res.json({ received: true });
+    } catch (e) {
+        console.error('[BloxCloud LemonSqueezy Webhook Error]:', e);
+        res.status(500).json({ error: e.message });
     }
-
-    auth.updateUserPlan(user.id, result.planId);
-    broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId: result.planId });
-    res.json({ success: true, user: auth._getSafeUser(db.findUserById(user.id)), invoice: result.invoice });
 });
 
 // Direct plan activation / testing fallback

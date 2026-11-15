@@ -1,10 +1,9 @@
 /**
- * BloxCloud Billing & Subscription Manager with Stripe Payments
+ * BloxCloud Billing & Subscription Manager with Lemon Squeezy Payments (Merchant of Record)
  */
 
 const crypto = require('crypto');
 const db = require('./db');
-const Stripe = require('stripe');
 
 const PLANS = {
     FREE: {
@@ -85,17 +84,6 @@ const PLANS = {
 };
 
 class BillingManager {
-    getStripe() {
-        const key = process.env.STRIPE_SECRET_KEY;
-        if (!key) return null;
-        try {
-            return new Stripe(key);
-        } catch (e) {
-            console.error('[BloxCloud Stripe] Init error:', e);
-            return null;
-        }
-    }
-
     getPlans() {
         return PLANS;
     }
@@ -104,7 +92,7 @@ class BillingManager {
         return PLANS[planId] || PLANS.FREE;
     }
 
-    createSubscription(user, planId, paymentMethod = 'CARD_SUCCESS') {
+    createSubscription(user, planId, paymentMethod = 'LEMON_SQUEEZY_CARD') {
         const plan = PLANS[planId];
         if (!plan) return { success: false, error: 'Invalid plan selected.' };
 
@@ -135,103 +123,86 @@ class BillingManager {
         const plan = PLANS[planId];
         if (!plan) return { success: false, error: 'Invalid plan selected.' };
 
-        // Free tier does not require Stripe checkout
+        // Free tier requires no checkout
         if (plan.price === 0) {
             const sub = this.createSubscription(user, 'FREE', 'FREE_TIER');
             return { success: true, free: true, subscription: sub };
         }
 
-        const stripe = this.getStripe();
-        if (!stripe) {
-            return {
-                success: false,
-                requiresConfig: true,
-                error: 'STRIPE_SECRET_KEY is not configured in environment variables.',
-                plan,
-            };
+        // Check if direct Lemon Squeezy checkout URL is configured for this plan
+        const customUrl = process.env[`LEMONSQUEEZY_${planId}_URL`];
+        if (customUrl) {
+            const sep = customUrl.includes('?') ? '&' : '?';
+            const checkoutUrl = `${customUrl}${sep}checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${encodeURIComponent(user.id)}&checkout[custom][plan_id]=${encodeURIComponent(planId)}`;
+            return { success: true, url: checkoutUrl };
         }
 
-        try {
-            const session = await stripe.checkout.sessions.create({
-                payment_method_types: ['card'],
-                line_items: [{
-                    price_data: {
-                        currency: 'usd',
-                        product_data: {
-                            name: `BloxCloud ${plan.name} Tier`,
-                            description: plan.features.slice(0, 3).join(' • '),
-                        },
-                        unit_amount: plan.price * 100, // Cents
-                        recurring: { interval: 'month' },
+        // Check for Lemon Squeezy API configuration
+        const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+        const storeId = process.env.LEMONSQUEEZY_STORE_ID;
+        const variantId = process.env[`LEMONSQUEEZY_VARIANT_${planId}`];
+
+        if (apiKey && storeId && variantId) {
+            try {
+                const response = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Accept': 'application/vnd.api+json',
+                        'Content-Type': 'application/vnd.api+json',
                     },
-                    quantity: 1,
-                }],
-                mode: 'subscription',
-                customer_email: user.email,
-                client_reference_id: user.id,
-                metadata: {
-                    userId: user.id,
-                    planId: planId,
-                },
-                success_url: `${origin}/?session_id={CHECKOUT_SESSION_ID}&plan=${planId}&status=success`,
-                cancel_url: `${origin}/?status=cancelled`,
-            });
+                    body: JSON.stringify({
+                        data: {
+                            type: 'checkouts',
+                            attributes: {
+                                checkout_data: {
+                                    email: user.email,
+                                    custom: {
+                                        user_id: user.id,
+                                        plan_id: planId,
+                                    },
+                                },
+                                product_options: {
+                                    redirect_url: `${origin}/?status=success&plan=${planId}`,
+                                },
+                            },
+                            relationships: {
+                                store: { data: { type: 'stores', id: String(storeId) } },
+                                variant: { data: { type: 'variants', id: String(variantId) } },
+                            },
+                        },
+                    }),
+                });
 
-            return {
-                success: true,
-                url: session.url,
-                sessionId: session.id,
-            };
-        } catch (err) {
-            console.error('[BloxCloud Stripe] Checkout creation error:', err);
-            return { success: false, error: err.message };
+                const data = await response.json();
+                if (data.data && data.data.attributes && data.data.attributes.url) {
+                    return { success: true, url: data.data.attributes.url };
+                } else {
+                    console.error('[BloxCloud LemonSqueezy] API Error:', data);
+                    return { success: false, error: data.errors ? data.errors[0].detail : 'Failed to create checkout' };
+                }
+            } catch (err) {
+                console.error('[BloxCloud LemonSqueezy] Request failed:', err);
+                return { success: false, error: err.message };
+            }
         }
+
+        // Lemon Squeezy not configured yet in Render Environment
+        return {
+            success: false,
+            requiresConfig: true,
+            provider: 'LEMON_SQUEEZY',
+            plan,
+            error: 'Lemon Squeezy credentials not configured yet in Render Environment Variables.',
+        };
     }
 
-    async verifyAndActivateSession(sessionId) {
-        const stripe = this.getStripe();
-        if (!stripe) return { success: false, error: 'Stripe not configured' };
-
-        try {
-            const session = await stripe.checkout.sessions.retrieve(sessionId);
-            if (!session) return { success: false, error: 'Checkout session not found' };
-
-            const userId = session.client_reference_id || (session.metadata && session.metadata.userId);
-            const planId = session.metadata && session.metadata.planId;
-
-            if (!userId || !planId) {
-                return { success: false, error: 'Session metadata missing userId or planId' };
-            }
-
-            const user = db.findUserById(userId);
-            if (!user) return { success: false, error: 'User not found' };
-
-            // Record invoice
-            const invoice = {
-                id: 'inv_' + (session.payment_intent || session.subscription || crypto.randomUUID().slice(0, 8)),
-                userId: user.id,
-                planId: planId,
-                planName: PLANS[planId] ? PLANS[planId].name : planId,
-                amount: (session.amount_total || (PLANS[planId] ? PLANS[planId].price * 100 : 0)) / 100,
-                currency: 'USD',
-                status: 'PAID',
-                paymentMethod: 'STRIPE_CARD',
-                timestamp: Date.now(),
-                nextBillingDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
-            };
-
-            db.addInvoice(invoice);
-
-            return {
-                success: true,
-                userId: user.id,
-                planId,
-                invoice,
-            };
-        } catch (err) {
-            console.error('[BloxCloud Stripe] Verification error:', err);
-            return { success: false, error: err.message };
-        }
+    verifyWebhookSignature(rawBody, signature, secret) {
+        if (!secret) return true;
+        const hmac = crypto.createHmac('sha256', secret);
+        const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
+        const sig = Buffer.from(signature || '', 'utf8');
+        return digest.length === sig.length && crypto.timingSafeEqual(digest, sig);
     }
 
     getUserInvoices(userId) {
