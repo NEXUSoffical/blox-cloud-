@@ -1,30 +1,23 @@
 /**
- * BloxCloud LiveOps & Feature Flags Engine
- * Allows dynamic remote toggles, emergency kill-switches, and live broadcasts without server restarts.
+ * BloxCloud LiveOps & Feature Flags Engine (Persistent)
  */
 
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
+const db = require('./db');
 
 class LiveOps {
     constructor() {
-        // Dynamic flags dictionary: key -> { key, value, type, description, updatedAt, changedBy }
-        this.flags = new Map();
-
-        // Active emergency broadcasts
         this.activeBroadcast = null;
-
-        // Change audit log
         this.auditLog = [];
     }
 
     getAllConfig() {
         const configObj = {};
-        const flagsList = [];
+        const flagsList = db.getFlags();
 
-        for (const [k, v] of this.flags.entries()) {
-            configObj[k] = v.value;
-            flagsList.push(v);
+        for (const flag of flagsList) {
+            configObj[flag.key] = flag.value;
         }
 
         return {
@@ -35,12 +28,14 @@ class LiveOps {
     }
 
     getConfigValue(key, fallback = null) {
-        const flag = this.flags.get(key);
+        const flags = db.getFlags();
+        const flag = flags.find(f => f.key === key);
         return flag ? flag.value : fallback;
     }
 
     setFlag(key, value, description = '', changedBy = 'Developer') {
-        const existing = this.flags.get(key);
+        const flags = db.getFlags();
+        const existing = flags.find(f => f.key === key);
         const oldValue = existing ? existing.value : undefined;
         const type = typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string';
 
@@ -53,7 +48,7 @@ class LiveOps {
             changedBy,
         };
 
-        this.flags.set(key, flagData);
+        db.saveFlag(flagData);
 
         const logEntry = {
             id: 'log_' + uuidv4().slice(0, 8),
@@ -71,9 +66,11 @@ class LiveOps {
     }
 
     deleteFlag(key, changedBy = 'Developer') {
-        if (!this.flags.has(key)) return false;
-        const existing = this.flags.get(key);
-        this.flags.delete(key);
+        const flags = db.getFlags();
+        const existing = flags.find(f => f.key === key);
+        if (!existing) return false;
+
+        db.deleteFlag(key);
 
         const logEntry = {
             id: 'log_' + uuidv4().slice(0, 8),
@@ -93,7 +90,7 @@ class LiveOps {
         this.activeBroadcast = {
             id: 'bc_' + uuidv4().slice(0, 8),
             message,
-            severity, // 'INFO' | 'WARNING' | 'ALERT'
+            severity,
             createdAt: Date.now(),
             expiresAt: Date.now() + durationSeconds * 1000,
         };

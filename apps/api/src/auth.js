@@ -1,22 +1,12 @@
 /**
- * BloxCloud Authentication Engine
- * Secure user registration, scrypt password hashing, and session management using Node.js crypto.
+ * BloxCloud Authentication Engine (Persistent)
+ * Uses db.js to persist all user accounts, passwords, API keys, and sessions across server restarts.
  */
 
 const crypto = require('crypto');
+const db = require('./db');
 
 class AuthManager {
-    constructor() {
-        // userId -> user object
-        this.users = new Map();
-        // email -> userId
-        this.emailIndex = new Map();
-        // token -> userId
-        this.sessions = new Map();
-        // apiKey -> userId
-        this.apiKeys = new Map();
-    }
-
     _hashPassword(password, salt) {
         return new Promise((resolve, reject) => {
             crypto.scrypt(password, salt, 64, (err, derivedKey) => {
@@ -27,8 +17,8 @@ class AuthManager {
     }
 
     async register(email, password, username, studioName) {
-        const cleanEmail = email.trim().toLowerCase();
-        if (this.emailIndex.has(cleanEmail)) {
+        const cleanEmail = (email || '').trim().toLowerCase();
+        if (db.findUserByEmail(cleanEmail)) {
             return { success: false, error: 'An account with this email already exists.' };
         }
 
@@ -49,33 +39,26 @@ class AuthManager {
             salt,
             passwordHash,
             apiKey,
-            plan: 'FREE', // 'FREE' | 'PRO' | 'STUDIO' | 'ENTERPRISE'
+            plan: 'FREE',
             planStatus: 'ACTIVE',
             createdAt: Date.now(),
         };
 
-        this.users.set(userId, user);
-        this.emailIndex.set(cleanEmail, userId);
-        this.apiKeys.set(apiKey, userId);
+        db.saveUser(user);
 
-        // Create initial session
+        // Create persistent session
         const sessionToken = crypto.randomBytes(32).toString('hex');
-        this.sessions.set(sessionToken, userId);
+        db.createSession(sessionToken, userId);
 
         const safeUser = this._getSafeUser(user);
         return { success: true, user: safeUser, token: sessionToken };
     }
 
     async login(email, password) {
-        const cleanEmail = email.trim().toLowerCase();
-        const userId = this.emailIndex.get(cleanEmail);
-        if (!userId) {
-            return { success: false, error: 'Invalid email or password.' };
-        }
-
-        const user = this.users.get(userId);
+        const cleanEmail = (email || '').trim().toLowerCase();
+        const user = db.findUserByEmail(cleanEmail);
         if (!user) {
-            return { success: false, error: 'User not found.' };
+            return { success: false, error: 'Invalid email or password.' };
         }
 
         const hash = await this._hashPassword(password, user.salt);
@@ -84,54 +67,46 @@ class AuthManager {
         }
 
         const sessionToken = crypto.randomBytes(32).toString('hex');
-        this.sessions.set(sessionToken, userId);
+        db.createSession(sessionToken, user.id);
 
         return { success: true, user: this._getSafeUser(user), token: sessionToken };
     }
 
     logout(token) {
-        if (this.sessions.has(token)) {
-            this.sessions.delete(token);
-            return true;
-        }
-        return false;
+        db.deleteSession(token);
+        return true;
     }
 
     getUserByToken(token) {
         if (!token) return null;
-        const userId = this.sessions.get(token);
+        const userId = db.getUserIdByToken(token);
         if (!userId) return null;
-        const user = this.users.get(userId);
+        const user = db.findUserById(userId);
         return user ? this._getSafeUser(user) : null;
     }
 
     getUserByApiKey(apiKey) {
         if (!apiKey) return null;
-        const userId = this.apiKeys.get(apiKey);
-        if (!userId) return null;
-        return this.users.get(userId) || null;
+        return db.findUserByApiKey(apiKey) || null;
     }
 
     regenerateApiKey(userId) {
-        const user = this.users.get(userId);
+        const user = db.findUserById(userId);
         if (!user) return null;
 
-        // Remove old key index
-        this.apiKeys.delete(user.apiKey);
-
-        // Generate new key
         const newKey = 'bc_live_' + crypto.randomBytes(16).toString('hex');
         user.apiKey = newKey;
-        this.apiKeys.set(newKey, userId);
+        db.saveUser(user);
 
         return newKey;
     }
 
     updateUserPlan(userId, plan) {
-        const user = this.users.get(userId);
+        const user = db.findUserById(userId);
         if (!user) return false;
         user.plan = plan;
         user.planStatus = 'ACTIVE';
+        db.saveUser(user);
         return true;
     }
 

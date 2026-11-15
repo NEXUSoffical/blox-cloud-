@@ -1,9 +1,9 @@
 /**
- * BloxCloud Billing & Subscription Manager
- * Handles subscription tiers, automated invoice ledgers, and upgrades.
+ * BloxCloud Billing & Subscription Manager (Persistent)
  */
 
 const crypto = require('crypto');
+const db = require('./db');
 
 const PLANS = {
     FREE: {
@@ -84,11 +84,6 @@ const PLANS = {
 };
 
 class BillingManager {
-    constructor() {
-        // userId -> Array of invoices
-        this.invoices = new Map();
-    }
-
     getPlans() {
         return PLANS;
     }
@@ -112,13 +107,10 @@ class BillingManager {
             status: 'PAID',
             paymentMethod: plan.price === 0 ? 'FREE_TIER' : paymentMethod,
             timestamp: Date.now(),
-            nextBillingDate: Date.now() + 30 * 24 * 60 * 60 * 1000, // +30 days
+            nextBillingDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
         };
 
-        if (!this.invoices.has(user.id)) {
-            this.invoices.set(user.id, []);
-        }
-        this.invoices.get(user.id).unshift(invoice);
+        db.addInvoice(invoice);
 
         return {
             success: true,
@@ -128,7 +120,7 @@ class BillingManager {
     }
 
     getUserInvoices(userId) {
-        return this.invoices.get(userId) || [];
+        return db.getUserInvoices(userId);
     }
 }
 
