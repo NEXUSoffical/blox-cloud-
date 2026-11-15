@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxCloud | The Roblox Developer Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #080a10;
+            color: #f1f5f9;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(16, 21, 33, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-cyan { box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.3); }
+        .glow-red { box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.3); }
+        .glow-amber { box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.3); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0e17; }
+        ::-webkit-scrollbar-thumb { background: #1f283d; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="glass-panel border-b border-slate-800 sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/25">
+                <i class="fa-solid fa-cube text-xl"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">BloxCloud</span>
+                    <span id="navPlanBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wide">FREE TIER</span>
+                </div>
+                <div class="flex items-center space-x-1.5 text-xs text-slate-400">
+                    <span>Studio:</span>
+                    <span id="userStudioDisplay" class="text-cyan-400 font-mono font-medium">My Roblox Studio</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Right Controls -->
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="wsStatus">LIVE SYNC ACTIVE</span>
+            </div>
+
+            <!-- Get SDK Button -->
+            <button onclick="openSdkModal()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-cyan-600/20 transition-all active:scale-95">
+                <i class="fa-solid fa-code text-xs"></i>
+                <span>Roblox SDK</span>
+            </button>
+
+            <!-- Billing & Account Button -->
+            <button onclick="openBillingModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-credit-card text-amber-400 text-xs"></i>
+                <span>Plans & Billing</span>
+            </button>
+
+            <!-- User Profile / Logout Dropdown -->
+            <div class="relative">
+                <button onclick="toggleUserDropdown()" class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-cyan-600 text-white font-bold text-xs flex items-center justify-center border border-slate-700">
+                    <span id="userInitial">U</span>
+                </button>
+                <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 rounded-xl glass-panel bg-slate-900 border border-slate-800 p-2 shadow-2xl z-50 text-xs space-y-1">
+                    <div class="px-3 py-2 border-b border-slate-800">
+                        <div id="dropdownUsername" class="font-bold text-white truncate">Developer</div>
+                        <div id="dropdownEmail" class="text-[11px] text-slate-400 truncate">dev@roblox.com</div>
+                    </div>
+                    <button onclick="openBillingModal(); toggleUserDropdown()" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-gem text-amber-400"></i>
+                        <span>Upgrade Subscription</span>
+                    </button>
+                    <button onclick="handleLogout()" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-rose-950/40 text-rose-400 flex items-center space-x-2">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
+
+        <!-- Active Emergency Broadcast Banner -->
+        <div id="broadcastBanner" class="hidden glass-panel border border-red-500/40 bg-red-950/20 p-4 rounded-xl flex items-center justify-between glow-red">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-400">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <div class="text-xs uppercase font-bold tracking-wider text-red-400">Global Server Broadcast</div>
+                    <div id="broadcastText" class="text-sm font-semibold text-slate-100"></div>
+                </div>
+            </div>
+            <button onclick="clearBroadcast()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700">Dismiss</button>
+        </div>
+
+        <!-- Project API Key & Connection Bar -->
+        <div class="glass-panel p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 border border-slate-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+                    <i class="fa-solid fa-key text-xs"></i>
+                </div>
+                <div>
+                    <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Your Private Secret API Key</div>
+                    <div class="flex items-center space-x-2">
+                        <span id="apiKeyDisplay" class="font-mono text-xs text-slate-200 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Loading...</span>
+                        <button onclick="copyApiKey()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1">
+                            <i class="fa-regular fa-copy"></i>
+                            <span id="copyBtnText">Copy</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="regenerateApiKey()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors">
+                    Regenerate Key
+                </button>
+            </div>
+        </div>
+
+        <!-- 4 Key Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                    <span>Live Game Servers</span>
+                    <i class="fa-solid fa-server text-cyan-400"></i>
+                </div>
+                <div id="statServers" class="text-3xl font-extrabold text-white font-mono">0</div>
+                <div class="text-xs text-slate-400 mt-2 flex items-center">
+                    <span id="statLivePlayers" class="text-cyan-400 font-semibold mr-1">0 Players</span> Online Globally
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                    <span>Global Server FPS</span>
+                    <i class="fa-solid fa-gauge-high text-emerald-400"></i>
+                </div>
+                <div id="statAvgFps" class="text-3xl font-extrabold text-white font-mono">60.0</div>
+                <div class="text-xs text-slate-400 mt-2 flex items-center">
+                    <span class="text-emerald-400 mr-1 font-semibold"><i class="fa-solid fa-heart-pulse"></i></span> Health Telemetry Active
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                    <span>Formed Matches</span>
+                    <i class="fa-solid fa-trophy text-indigo-400"></i>
+                </div>
+                <div id="statMatches" class="text-3xl font-extrabold text-white font-mono">0</div>
+                <div class="text-xs text-slate-400 mt-2 flex items-center">
+                    <span class="text-emerald-400 mr-1 font-semibold">100%</span> ELO balanced
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl relative overflow-hidden group hover:border-amber-500/40 transition-all">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">
+                    <span>Global Auction Items</span>
+                    <i class="fa-solid fa-store text-amber-400"></i>
+                </div>
+                <div id="statListings" class="text-3xl font-extrabold text-white font-mono">0</div>
+                <div class="text-xs text-slate-400 mt-2 flex items-center">
+                    <span class="text-amber-400 mr-1"><i class="fa-solid fa-shield-halved"></i></span> Anti-dupe protected
+                </div>
+            </div>
+        </div>
+
+        <!-- LIVE GAME TELEMETRY & SERVER HEALTH (Stats Roblox Fails to Provide) -->
+        <div class="glass-panel p-6 rounded-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <i class="fa-solid fa-tower-broadcast text-sm"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-base text-white">Live Game Server Diagnostics & Health</h2>
+                        <p class="text-xs text-slate-400">Global server-wide telemetry, crash stack traces, and exploit feeds that Roblox does not provide.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span id="telemetryServerBadge" class="text-xs font-mono px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400">0 Servers Online</span>
+                </div>
+            </div>
+
+            <!-- Active Server Instances Grid -->
+            <div>
+                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Active Game Server Instances</div>
+                <div id="serversGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="col-span-3 py-6 text-center text-slate-500 text-xs">
+                        No active game servers connected yet.<br>When your Roblox game connects via the SDK, live server instances with real-time FPS and Memory will appear here.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2 Columns: Live Script Error Sentry & Anti-Exploit Threat Feed -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-800">
+                
+                <!-- Error Sentry -->
+                <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-bold">
+                        <span class="text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                            <i class="fa-solid fa-bug text-rose-400"></i>
+                            <span>Live Error Sentry (Crash Feed)</span>
+                        </span>
+                        <span class="text-[10px] text-slate-500">Auto-Reported</span>
+                    </div>
+                    <div id="errorFeedList" class="space-y-1.5 max-h-40 overflow-y-auto text-xs text-slate-400">
+                        <div class="text-slate-500 text-center py-4 text-xs">No runtime errors reported. Systems running clean.</div>
+                    </div>
+                </div>
+
+                <!-- Anti-Exploit Threat Feed -->
+                <div class="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-bold">
+                        <span class="text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                            <i class="fa-solid fa-shield-virus text-amber-400"></i>
+                            <span>Anti-Exploit Threat Feed</span>
+                        </span>
+                        <span class="text-[10px] text-slate-500">Physics & Velocity</span>
+                    </div>
+                    <div id="exploitFeedList" class="space-y-1.5 max-h-40 overflow-y-auto text-xs text-slate-400">
+                        <div class="text-slate-500 text-center py-4 text-xs">No exploit anomalies flagged. Integrity intact.</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 2 Column Section: LiveOps & Matchmaking -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left: LiveOps & Feature Flags (5 cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="glass-panel p-6 rounded-2xl space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center space-x-2.5">
+                            <i class="fa-solid fa-sliders text-cyan-400"></i>
+                            <h2 class="font-bold text-base text-white">LiveOps & Feature Flags</h2>
+                        </div>
+                        <button onclick="openAddFlagModal()" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>New Flag</span>
+                        </button>
+                    </div>
+
+                    <!-- Dynamic Flags List -->
+                    <div id="flagsContainer" class="space-y-3">
+                        <div class="text-center py-6 text-slate-500 text-xs">
+                            No custom feature flags created yet.<br>Click "+ New Flag" above to create an emergency kill-switch or event toggle.
+                        </div>
+                    </div>
+
+                    <!-- Dispatch Global Broadcast Form -->
+                    <div class="pt-3 border-t border-slate-800 space-y-3">
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Broadcast In-Game Banner</label>
+                        <div class="flex space-x-2">
+                            <input id="broadcastInput" type="text" placeholder="Type global alert message..." class="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-medium">
+                            <button onclick="sendBroadcast()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                                <i class="fa-solid fa-bullhorn text-cyan-400"></i>
+                                <span>Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integration Luau Code Snippet Card -->
+                <div class="glass-panel p-6 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                            <i class="fa-solid fa-code text-cyan-400"></i>
+                            <span>Server Integration</span>
+                        </span>
+                        <button onclick="openSdkModal()" class="text-[11px] text-cyan-400 hover:underline">View Setup Guide →</button>
+                    </div>
+                    <pre class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 text-[11px] text-slate-300 font-mono overflow-x-auto"><code id="codeSnippetDisplay">-- Loading snippet...</code></pre>
+                </div>
+            </div>
+
+            <!-- Right: Matchmaking & Auction House (7 cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Live Matches Table -->
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center space-x-2.5">
+                            <i class="fa-solid fa-gamepad text-indigo-400"></i>
+                            <h2 class="font-bold text-base text-white">Active Formed Matches</h2>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400" id="matchCounter">0 Active</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="text-slate-400 border-b border-slate-800 font-medium uppercase tracking-wider text-[10px]">
+                                <tr>
+                                    <th class="pb-2">Queue</th>
+                                    <th class="pb-2">Team Alpha</th>
+                                    <th class="pb-2">Team Beta</th>
+                                    <th class="pb-2 text-right">Teleport Server Code</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matchesTable" class="divide-y divide-slate-800/50 text-slate-200">
+                                <tr>
+                                    <td colspan="4" class="py-6 text-center text-slate-500">Waiting for game servers to report active matches.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Global Auction House Listings -->
+                <div class="glass-panel p-6 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center space-x-2.5">
+                            <i class="fa-solid fa-cart-shopping text-amber-400"></i>
+                            <h2 class="font-bold text-base text-white">Global Auction House</h2>
+                        </div>
+                        <button onclick="openListItemModal()" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>List Item</span>
+                        </button>
+                    </div>
+
+                    <div id="listingsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="col-span-3 py-6 text-center text-slate-500 text-xs">
+                            No items listed on the Auction House yet. Click "+ List Item" to list an item.
+                        </div>
+                    </div>
+
+                    <!-- Recent Transactions Ledger -->
+                    <div class="pt-3 border-t border-slate-800/80">
+                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Settlement Ledger</div>
+                        <div id="ledgerList" class="space-y-1.5 text-xs text-slate-400">
+                            <div class="text-slate-500 text-center py-2">No settled transactions yet.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal: AUTHENTICATION (Sign In / Register) -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 space-y-5">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/25 mx-auto">
+                    <i class="fa-solid fa-cube text-2xl"></i>
+                </div>
+                <h3 class="font-bold text-white text-lg tracking-tight">BloxCloud Developer Access</h3>
+                <p class="text-xs text-slate-400">Sign in or create an account to manage your Roblox games.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                <button id="tabSignInBtn" onclick="switchAuthTab('signin')" class="flex-1 py-1.5 font-semibold rounded-lg bg-cyan-600 text-white transition-all">Sign In</button>
+                <button id="tabSignUpBtn" onclick="switchAuthTab('signup')" class="flex-1 py-1.5 font-semibold rounded-lg text-slate-400 hover:text-white transition-all">Create Account</button>
+            </div>
+
+            <!-- Sign In Form -->
+            <form id="signInForm" onsubmit="handleSignIn(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Developer Email</label>
+                    <input id="loginEmail" type="email" required placeholder="developer@studio.com" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Password</label>
+                    <input id="loginPassword" type="password" required placeholder="••••••••" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div id="loginError" class="hidden text-rose-400 text-xs"></div>
+                <button type="submit" class="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-bold text-white text-xs transition-all shadow-md shadow-cyan-600/20">
+                    Sign In to Dashboard
+                </button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signUpForm" onsubmit="handleSignUp(event)" class="hidden space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Roblox Studio / Game Name</label>
+                    <input id="regStudio" type="text" required placeholder="e.g. Apex Games, Void Interactive" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Developer Username</label>
+                    <input id="regUsername" type="text" required placeholder="e.g. LeadDev_Alex" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Email Address</label>
+                    <input id="regEmail" type="email" required placeholder="alex@apexstudios.com" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Password</label>
+                    <input id="regPassword" type="password" required minlength="6" placeholder="At least 6 characters" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div id="signUpError" class="hidden text-rose-400 text-xs"></div>
+                <button type="submit" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 font-bold text-white text-xs transition-all shadow-md shadow-cyan-600/20">
+                    Create Free Developer Account
+                </button>
+            </form>
+
+            <!-- Quick Demo Button -->
+            <div class="pt-2 border-t border-slate-800 text-center">
+                <button onclick="loginDemoAccount()" class="text-xs text-slate-400 hover:text-cyan-400">
+                    ⚡ Quick Test: Log In as Demo Studio Lead
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: PLANS & BILLING -->
+    <div id="billingModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-credit-card"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-base">Subscription Plans & Billing</h3>
+                        <p class="text-xs text-slate-400">Choose the right capacity for your Roblox game's player base.</p>
+                    </div>
+                </div>
+                <button onclick="closeBillingModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <!-- Current Plan Banner -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] text-slate-400 uppercase font-semibold">Active Plan</div>
+                    <div class="text-base font-extrabold text-white flex items-center space-x-2">
+                        <span id="currentPlanName">Indie / Free Plan</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold uppercase">Active</span>
+                    </div>
+                </div>
+                <div class="text-right text-xs">
+                    <div class="text-slate-400">Monthly Bill</div>
+                    <div id="currentPlanPrice" class="font-bold text-white text-base">$0 / mo</div>
+                </div>
+            </div>
+
+            <!-- 4 Pricing Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                
+                <!-- Plan 1: Free -->
+                <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <div class="font-bold text-white text-sm">Indie / Free</div>
+                        <div class="text-2xl font-extrabold text-white">$0 <span class="text-xs text-slate-400 font-normal">/mo</span></div>
+                        <div class="text-[11px] text-slate-400">For testing and brand new indie games.</div>
+                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> 10,000 matches/mo</li>
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Ranked 1v1 Queue</li>
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Basic Kill-Switches</li>
+                        </ul>
+                    </div>
+                    <button id="btnPlanFREE" onclick="selectPlan('FREE')" class="w-full py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700">
+                        Current Plan
+                    </button>
+                </div>
+
+                <!-- Plan 2: Pro -->
+                <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/40 glow-cyan flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <div class="font-bold text-cyan-400 text-sm flex items-center justify-between">
+                            <span>Studio Pro</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Popular</span>
+                        </div>
+                        <div class="text-2xl font-extrabold text-white">$29 <span class="text-xs text-slate-400 font-normal">/mo</span></div>
+                        <div class="text-[11px] text-slate-400">For games with 100–500 active players.</div>
+                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> 250,000 matches/mo</li>
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> 1v1, 2v2, 3v3 Queues</li>
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Global Auction House</li>
+                            <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Emergency Broadcasts</li>
+                        </ul>
+                    </div>
+                    <button id="btnPlanPRO" onclick="selectPlan('PRO')" class="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-600/30">
+                        Upgrade to Pro
+                    </button>
+                </div>
+
+                <!-- Plan 3: Studio -->
+                <div class="p-4 rounded-xl bg-slate-950 border border-amber-500/40 glow-amber flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <div class="font-bold text-amber-400 text-sm">Scale Studio</div>
+                        <div class="text-2xl font-extrabold text-white">$99 <span class="text-xs text-slate-400 font-normal">/mo</span></div>
+                        <div class="text-[11px] text-slate-400">For games with 1,000–5,000 active players.</div>
+                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
+                            <li><i class="fa-solid fa-check text-amber-400 mr-1"></i> 1,500,000 matches/mo</li>
+                            <li><i class="fa-solid fa-check text-amber-400 mr-1"></i> Custom Team Queues</li>
+                            <li><i class="fa-solid fa-check text-amber-400 mr-1"></i> Cross-Server Ledger</li>
+                            <li><i class="fa-solid fa-check text-amber-400 mr-1"></i> Priority ELO Routing</li>
+                        </ul>
+                    </div>
+                    <button id="btnPlanSTUDIO" onclick="selectPlan('STUDIO')" class="w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/30">
+                        Upgrade to Studio
+                    </button>
+                </div>
+
+                <!-- Plan 4: Enterprise -->
+                <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <div class="font-bold text-purple-400 text-sm">Top Enterprise</div>
+                        <div class="text-2xl font-extrabold text-white">$249 <span class="text-xs text-slate-400 font-normal">/mo</span></div>
+                        <div class="text-[11px] text-slate-400">For top front-page Roblox hit games.</div>
+                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
+                            <li><i class="fa-solid fa-check text-purple-400 mr-1"></i> Unlimited Matches</li>
+                            <li><i class="fa-solid fa-check text-purple-400 mr-1"></i> Custom ELO Formulas</li>
+                            <li><i class="fa-solid fa-check text-purple-400 mr-1"></i> 99.9% Uptime SLA</li>
+                            <li><i class="fa-solid fa-check text-purple-400 mr-1"></i> Dedicated Discord Line</li>
+                        </ul>
+                    </div>
+                    <button id="btnPlanENTERPRISE" onclick="selectPlan('ENTERPRISE')" class="w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30">
+                        Upgrade Enterprise
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Invoices Ledger -->
+            <div class="pt-3 border-t border-slate-800 space-y-2">
+                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">Billing History & Receipts</div>
+                <div id="invoicesList" class="space-y-1 text-xs text-slate-400">
+                    <div class="text-slate-500 text-center py-2">No invoices billed yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Get SDK / Installation Guide -->
+    <div id="sdkModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                        <i class="fa-solid fa-download"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-base">Add BloxCloud to Your Roblox Game</h3>
+                        <p class="text-xs text-slate-400">Follow these 3 quick steps to connect your game.</p>
+                    </div>
+                </div>
+                <button onclick="closeSdkModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Step 1 -->
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                    <div class="font-bold text-cyan-400 flex items-center space-x-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px]">1</span>
+                        <span>Enable HTTP Requests in Roblox Studio</span>
+                    </div>
+                    <p class="text-slate-400 pl-6">
+                        In Roblox Studio: Click <strong>Home</strong> → <strong>Game Settings</strong> → <strong>Security</strong> → Turn <strong>ON</strong> "Allow HTTP Requests" → Click <strong>Save</strong>.
+                    </p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                    <div class="font-bold text-cyan-400 flex items-center space-x-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px]">2</span>
+                        <span>Get the BloxCloud ModuleScript</span>
+                    </div>
+                    <p class="text-slate-400 pl-6">
+                        In Roblox Studio Explorer, under <strong>ReplicatedStorage</strong>, create a <strong>ModuleScript</strong> named <code class="text-slate-200 font-mono">BloxCloud</code> and paste the code inside.
+                    </p>
+                    <div class="flex items-center space-x-3 pl-6">
+                        <a href="/api/v1/sdk/download" download class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold flex items-center space-x-1.5 transition-all">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Download BloxCloud.luau</span>
+                        </a>
+                        <button onclick="copyFullSdkCode()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold flex items-center space-x-1.5 transition-all">
+                            <i class="fa-regular fa-copy"></i>
+                            <span id="copySdkBtnText">Copy Full Luau Code</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="font-bold text-cyan-400 flex items-center space-x-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px]">3</span>
+                        <span>Require it in ServerScriptService</span>
+                    </div>
+                    <p class="text-slate-400 pl-6">
+                        In <strong>ServerScriptService</strong>, create a regular <strong>Script</strong> and connect with your project secret key:
+                    </p>
+                    <div class="pl-6">
+                        <pre class="bg-slate-900 p-3 rounded-lg border border-slate-800 font-mono text-[11px] text-slate-300 overflow-x-auto"><code id="modalScriptCode">-- Loading snippet...</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-800">
+                <button onclick="closeSdkModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-white font-semibold text-xs">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Feature Flag -->
+    <div id="addFlagModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white text-sm">Create Feature Flag or Kill-switch</h3>
+                <button onclick="closeAddFlagModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Flag Key (Identifier)</label>
+                    <input id="flagKeyInput" type="text" placeholder="e.g. double_xp_enabled, disable_weapon_rocket" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Description</label>
+                    <input id="flagDescInput" type="text" placeholder="e.g. Emergency kill-switch for rocket launcher" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Initial Value</label>
+                    <select id="flagValInput" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                        <option value="true">True (Enabled)</option>
+                        <option value="false" selected>False (Disabled)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeAddFlagModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs">Cancel</button>
+                <button onclick="submitNewFlag()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold">Create Flag</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: List Item -->
+    <div id="listItemModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white text-sm">List Item on Global Auction House</h3>
+                <button onclick="closeListItemModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Item ID</label>
+                    <input id="itemIdentifierInput" type="text" placeholder="e.g. mythical_frost_blade" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Price (Coins)</label>
+                    <input id="itemPriceInput" type="number" placeholder="5000" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white font-mono focus:border-cyan-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Seller Username</label>
+                    <input id="itemSellerInput" type="text" placeholder="e.g. StudioLeader" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-white focus:border-cyan-500 outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeListItemModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs">Cancel</button>
+                <button onclick="submitNewItem()" class="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold">List Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side script connecting to API & WebSocket -->
+    <script>
+        const API = 'http://localhost:3001/api/v1';
+        let ws;
+        let currentUser = null;
+        let authToken = localStorage.getItem('bloxcloud_token') || '';
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            };
+        }
+
+        function connectWS() {
+            ws = new WebSocket('ws://localhost:3001');
+
+            ws.onopen = () => {
+                document.getElementById('wsStatus').innerText = 'LIVE SYNC ACTIVE';
+            };
+
+            ws.onmessage = (event) => {
+                refreshData();
+            };
+
+            ws.onclose = () => {
+                document.getElementById('wsStatus').innerText = 'RECONNECTING...';
+                setTimeout(connectWS, 2000);
+            };
+        }
+
+        async function initAuth() {
+            if (!authToken) {
+                // Show login modal
+                document.getElementById('authModal').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/me`, { headers: getAuthHeaders() });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentUser = data.user;
+                    updateUserUI();
+                    document.getElementById('authModal').classList.add('hidden');
+                } else {
+                    localStorage.removeItem('bloxcloud_token');
+                    authToken = '';
+                    document.getElementById('authModal').classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error("Auth check failed:", e);
+            }
+        }
+
+        function updateUserUI() {
+            if (!currentUser) return;
+            document.getElementById('userStudioDisplay').innerText = currentUser.studioName;
+            document.getElementById('dropdownUsername').innerText = currentUser.username;
+            document.getElementById('dropdownEmail').innerText = currentUser.email;
+            document.getElementById('userInitial').innerText = (currentUser.username[0] || 'U').toUpperCase();
+
+            // Plan badge
+            const badge = document.getElementById('navPlanBadge');
+            badge.innerText = `${currentUser.plan} PLAN`;
+            if (currentUser.plan === 'PRO') {
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase tracking-wide glow-cyan';
+            } else if (currentUser.plan === 'STUDIO') {
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wide glow-amber';
+            } else if (currentUser.plan === 'ENTERPRISE') {
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase tracking-wide';
+            } else {
+                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-wide';
+            }
+
+            // Key display
+            document.getElementById('apiKeyDisplay').innerText = currentUser.apiKey;
+            const snippet = 
+`local BloxCloud = require(game.ReplicatedStorage.BloxCloud).Init("${currentUser.apiKey}", {
+    baseUrl = "http://localhost:3001"
+})
+
+-- Listen for live config & emergency kill-switches
+BloxCloud.LiveOps:OnConfigChange("your_flag_key", function(enabled)
+    print("Flag updated:", enabled)
+end)`;
+            document.getElementById('codeSnippetDisplay').innerText = snippet;
+            document.getElementById('modalScriptCode').innerText = snippet;
+        }
+
+        function switchAuthTab(tab) {
+            const signInForm = document.getElementById('signInForm');
+            const signUpForm = document.getElementById('signUpForm');
+            const tabSignInBtn = document.getElementById('tabSignInBtn');
+            const tabSignUpBtn = document.getElementById('tabSignUpBtn');
+
+            if (tab === 'signin') {
+                signInForm.classList.remove('hidden');
+                signUpForm.classList.add('hidden');
+                tabSignInBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg bg-cyan-600 text-white transition-all';
+                tabSignUpBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+            } else {
+                signInForm.classList.add('hidden');
+                signUpForm.classList.remove('hidden');
+                tabSignUpBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg bg-cyan-600 text-white transition-all';
+                tabSignInBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+            }
+        }
+
+        async function handleSignIn(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errDiv = document.getElementById('loginError');
+
+            try {
+                const res = await fetch(`${API}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errDiv.innerText = data.error || 'Login failed';
+                    errDiv.classList.remove('hidden');
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('bloxcloud_token', authToken);
+                currentUser = data.user;
+                updateUserUI();
+                document.getElementById('authModal').classList.add('hidden');
+                refreshData();
+            } catch (err) {
+                errDiv.innerText = err.message;
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleSignUp(e) {
+            e.preventDefault();
+            const studioName = document.getElementById('regStudio').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const errDiv = document.getElementById('signUpError');
+
+            try {
+                const res = await fetch(`${API}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studioName, username, email, password })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errDiv.innerText = data.error || 'Registration failed';
+                    errDiv.classList.remove('hidden');
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('bloxcloud_token', authToken);
+                currentUser = data.user;
+                updateUserUI();
+                document.getElementById('authModal').classList.add('hidden');
+                refreshData();
+            } catch (err) {
+                errDiv.innerText = err.message;
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function loginDemoAccount() {
+            const demoEmail = "studio_lead@roblox.com";
+            const demoPass = "studioPass123";
+            
+            // Try login first
+            let res = await fetch(`${API}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: demoEmail, password: demoPass })
+            });
+
+            if (!res.ok) {
+                // Register demo
+                res = await fetch(`${API}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: demoEmail,
+                        password: demoPass,
+                        username: 'LeadDev_Kieran',
+                        studioName: 'Solaris Studios'
+                    })
+                });
+            }
+
+            const data = await res.json();
+            if (data.success) {
+                authToken = data.token;
+                localStorage.setItem('bloxcloud_token', authToken);
+                currentUser = data.user;
+                updateUserUI();
+                document.getElementById('authModal').classList.add('hidden');
+                refreshData();
+            }
+        }
+
+        function handleLogout() {
+            fetch(`${API}/auth/logout`, { method: 'POST', headers: getAuthHeaders() });
+            localStorage.removeItem('bloxcloud_token');
+            authToken = '';
+            currentUser = null;
+            document.getElementById('userDropdown').classList.add('hidden');
+            document.getElementById('authModal').classList.remove('hidden');
+        }
+
+        function toggleUserDropdown() {
+            document.getElementById('userDropdown').classList.toggle('hidden');
+        }
+
+        // Billing modal & actions
+        async function openBillingModal() {
+            if (!currentUser) return;
+            document.getElementById('billingModal').classList.remove('hidden');
+            document.getElementById('currentPlanName').innerText = `${currentUser.plan} Plan`;
+            document.getElementById('currentPlanPrice').innerText = 
+                currentUser.plan === 'PRO' ? '$29 / mo' : currentUser.plan === 'STUDIO' ? '$99 / mo' : currentUser.plan === 'ENTERPRISE' ? '$249 / mo' : '$0 / mo';
+
+            // Update button states
+            ['FREE', 'PRO', 'STUDIO', 'ENTERPRISE'].forEach(p => {
+                const btn = document.getElementById(`btnPlan${p}`);
+                if (btn) {
+                    if (currentUser.plan === p) {
+                        btn.innerText = 'Current Plan';
+                        btn.disabled = true;
+                        btn.className = 'w-full py-2 rounded-lg bg-slate-800 text-slate-400 text-xs font-semibold cursor-default';
+                    } else {
+                        btn.disabled = false;
+                        btn.innerText = `Select ${p}`;
+                        btn.className = p === 'PRO' ? 'w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold'
+                            : p === 'STUDIO' ? 'w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold'
+                            : p === 'ENTERPRISE' ? 'w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold'
+                            : 'w-full py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700';
+                    }
+                }
+            });
+
+            // Load invoices
+            try {
+                const res = await fetch(`${API}/billing/invoices`, { headers: getAuthHeaders() });
+                const data = await res.json();
+                const list = document.getElementById('invoicesList');
+                if (data.invoices && data.invoices.length > 0) {
+                    list.innerHTML = data.invoices.map(inv => `
+                        <div class="p-2 rounded bg-slate-900 border border-slate-800 flex items-center justify-between font-mono text-[11px]">
+                            <span><i class="fa-solid fa-receipt text-cyan-400 mr-2"></i> ${inv.id} (${inv.planName})</span>
+                            <span class="text-emerald-400 font-bold">$${inv.amount}.00 USD (PAID)</span>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = `<div class="text-slate-500 text-center py-2">No invoices billed yet.</div>`;
+                }
+            } catch (e) {
+                console.error("Failed to load invoices:", e);
+            }
+        }
+
+        function closeBillingModal() {
+            document.getElementById('billingModal').classList.add('hidden');
+        }
+
+        async function selectPlan(planId) {
+            if (!confirm(`Upgrade subscription to the ${planId} Plan?`)) return;
+
+            try {
+                const res = await fetch(`${API}/billing/subscribe`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ planId, paymentMethod: 'CREDIT_CARD_VISA_***4242' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentUser.plan = planId;
+                    updateUserUI();
+                    alert(`Subscription successfully activated! Welcome to the ${planId} Tier.`);
+                    openBillingModal();
+                } else {
+                    alert(`Failed to activate plan: ${data.error}`);
+                }
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            }
+        }
+
+        async function refreshData() {
+            try {
+                const res = await fetch(`${API}/metrics`);
+                const data = await res.json();
+
+                // Telemetry & Stats Cards
+                if (data.telemetry) {
+                    document.getElementById('statServers').innerText = data.telemetry.totalServers;
+                    document.getElementById('statLivePlayers').innerText = `${data.telemetry.totalLivePlayers} Players`;
+                    document.getElementById('statAvgFps').innerText = data.telemetry.avgFps.toFixed(1);
+                    document.getElementById('telemetryServerBadge').innerText = `${data.telemetry.totalServers} Servers Online`;
+
+                    // Render Servers Grid
+                    const sGrid = document.getElementById('serversGrid');
+                    if (data.telemetry.servers && data.telemetry.servers.length > 0) {
+                        sGrid.innerHTML = data.telemetry.servers.map(s => `
+                            <div class="p-3.5 rounded-xl bg-slate-900 border ${s.health === 'DEGRADED' ? 'border-amber-500/50 glow-amber' : 'border-slate-800'} space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono text-cyan-400 text-xs font-bold truncate max-w-[150px]">${s.jobId}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${s.health === 'DEGRADED' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${s.health}</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center text-[11px] pt-1">
+                                    <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800/80">
+                                        <div class="text-slate-400 text-[10px]">FPS</div>
+                                        <div class="font-bold text-white">${s.serverFps}</div>
+                                    </div>
+                                    <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800/80">
+                                        <div class="text-slate-400 text-[10px]">Memory</div>
+                                        <div class="font-bold text-white">${s.serverMemoryMb} MB</div>
+                                    </div>
+                                    <div class="bg-slate-950 p-1.5 rounded-lg border border-slate-800/80">
+                                        <div class="text-slate-400 text-[10px]">Players</div>
+                                        <div class="font-bold text-white">${s.playerCount}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        sGrid.innerHTML = `<div class="col-span-3 py-6 text-center text-slate-500 text-xs">No active game servers connected yet.<br>When your Roblox game connects via the SDK, live server instances with real-time FPS and Memory will appear here.</div>`;
+                    }
+
+                    // Render Error Feed
+                    const eFeed = document.getElementById('errorFeedList');
+                    if (data.telemetry.recentErrors && data.telemetry.recentErrors.length > 0) {
+                        eFeed.innerHTML = data.telemetry.recentErrors.map(e => `
+                            <div class="p-2 rounded bg-rose-950/20 border border-rose-900/40 text-[11px] space-y-0.5">
+                                <div class="text-rose-300 font-bold flex items-center justify-between">
+                                    <span class="truncate">${e.message}</span>
+                                    <span class="text-[10px] text-slate-500 font-mono">${e.scriptName}</span>
+                                </div>
+                                <div class="text-slate-400 font-mono text-[10px] truncate">${e.stack || e.jobId}</div>
+                            </div>
+                        `).join('');
+                    } else {
+                        eFeed.innerHTML = `<div class="text-slate-500 text-center py-4 text-xs">No runtime errors reported. Systems running clean.</div>`;
+                    }
+
+                    // Render Exploit Feed
+                    const xFeed = document.getElementById('exploitFeedList');
+                    if (data.telemetry.recentExploits && data.telemetry.recentExploits.length > 0) {
+                        xFeed.innerHTML = data.telemetry.recentExploits.map(x => `
+                            <div class="p-2 rounded bg-amber-950/20 border border-amber-900/40 text-[11px] flex items-center justify-between">
+                                <div>
+                                    <span class="text-amber-300 font-bold">${x.username}</span>
+                                    <span class="text-slate-400 text-[10px] ml-1">(${x.anomalyType})</span>
+                                </div>
+                                <span class="text-[10px] font-mono text-slate-500">${x.details}</span>
+                            </div>
+                        `).join('');
+                    } else {
+                        xFeed.innerHTML = `<div class="text-slate-500 text-center py-4 text-xs">No exploit anomalies flagged. Integrity intact.</div>`;
+                    }
+                }
+
+                document.getElementById('statMatches').innerText = data.totalMatchesCreated;
+                document.getElementById('statListings').innerText = data.totalActiveListings;
+                document.getElementById('statTransactions').innerText = data.totalTransactions;
+
+                // Broadcast
+                const bcBanner = document.getElementById('broadcastBanner');
+                if (data.activeBroadcast && data.activeBroadcast.message) {
+                    bcBanner.classList.remove('hidden');
+                    document.getElementById('broadcastText').innerText = data.activeBroadcast.message;
+                } else {
+                    bcBanner.classList.add('hidden');
+                }
+
+                // Render Dynamic Flags
+                const flagsContainer = document.getElementById('flagsContainer');
+                if (data.flags && data.flags.length > 0) {
+                    flagsContainer.innerHTML = data.flags.map(f => `
+                        <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all">
+                            <div class="space-y-0.5">
+                                <div class="text-sm font-semibold text-white flex items-center space-x-2">
+                                    <span class="font-mono text-cyan-400">${f.key}</span>
+                                    ${f.key.toLowerCase().includes('disable') || f.key.toLowerCase().includes('kill') ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 font-semibold uppercase">Killswitch</span>' : ''}
+                                </div>
+                                <div class="text-xs text-slate-400">${f.description || 'Configured via BloxCloud dashboard'}</div>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" ${f.value ? 'checked' : ''} onchange="toggleFlag('${f.key}', this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                                </label>
+                                <button onclick="deleteFlag('${f.key}')" title="Delete Flag" class="text-slate-500 hover:text-rose-400 transition-colors p-1">
+                                    <i class="fa-regular fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    flagsContainer.innerHTML = `
+                        <div class="text-center py-6 text-slate-500 text-xs">
+                            No custom feature flags created yet.<br>Click "+ New Flag" above to create an emergency kill-switch or event toggle.
+                        </div>
+                    `;
+                }
+
+                // Render Matches Table
+                const tbody = document.getElementById('matchesTable');
+                if (data.recentMatches && data.recentMatches.length > 0) {
+                    document.getElementById('matchCounter').innerText = `${data.recentMatches.length} Active`;
+                    tbody.innerHTML = data.recentMatches.map(m => `
+                        <tr class="hover:bg-slate-800/30 transition-colors">
+                            <td class="py-2.5 font-semibold text-cyan-400">${m.queueType}</td>
+                            <td class="py-2.5">
+                                ${m.teamA.map(p => `<span class="bg-indigo-950/70 border border-indigo-700/50 px-2 py-0.5 rounded text-[11px] font-mono mr-1">${p.username} (${p.rating})</span>`).join('')}
+                            </td>
+                            <td class="py-2.5">
+                                ${m.teamB.map(p => `<span class="bg-purple-950/70 border border-purple-700/50 px-2 py-0.5 rounded text-[11px] font-mono mr-1">${p.username} (${p.rating})</span>`).join('')}
+                            </td>
+                            <td class="py-2.5 text-right font-mono text-emerald-400 font-semibold">${m.reservedServerCode}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    document.getElementById('matchCounter').innerText = '0 Active';
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">Waiting for game servers to report active matches.</td></tr>`;
+                }
+
+                // Render Listings
+                const listingsRes = await fetch(`${API}/marketplace/listings`);
+                const listingsData = await listingsRes.json();
+                const grid = document.getElementById('listingsGrid');
+                if (listingsData.listings && listingsData.listings.length > 0) {
+                    grid.innerHTML = listingsData.listings.map(item => `
+                        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">LISTING</span>
+                                    <span class="text-xs font-bold text-emerald-400 font-mono">${item.price.toLocaleString()} coins</span>
+                                </div>
+                                <div class="font-bold text-sm text-white font-mono">${item.itemId}</div>
+                                <div class="text-[11px] text-slate-400 mt-1">Seller: <span class="text-slate-300 font-mono">${item.sellerName}</span></div>
+                            </div>
+                            <button onclick="buyItem('${item.listingId}', '${item.price}')" class="mt-3 w-full py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-semibold text-xs transition-all">
+                                Buy Item
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = `<div class="col-span-3 py-6 text-center text-slate-500 text-xs">No items listed on the Auction House yet. Click "+ List Item" to list an item.</div>`;
+                }
+
+                // Render Ledger
+                const ledgerList = document.getElementById('ledgerList');
+                if (data.recentTransactions && data.recentTransactions.length > 0) {
+                    ledgerList.innerHTML = data.recentTransactions.map(tx => `
+                        <div class="p-2 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between font-mono text-[11px]">
+                            <span><i class="fa-solid fa-arrow-right-arrow-left text-cyan-400 mr-1.5"></i> ${tx.buyerName} bought <strong class="text-white">${tx.itemId}</strong> from ${tx.sellerName}</span>
+                            <span class="text-emerald-400 font-semibold">+${tx.price.toLocaleString()} coins</span>
+                        </div>
+                    `).join('');
+                } else {
+                    ledgerList.innerHTML = `<div class="text-slate-500 text-center py-2">No settled transactions yet.</div>`;
+                }
+
+            } catch (e) {
+                console.error("Dashboard refresh error:", e);
+            }
+        }
+
+        // Copy API key
+        function copyApiKey() {
+            if (!currentUser || !currentUser.apiKey) return;
+            navigator.clipboard.writeText(currentUser.apiKey);
+            const btn = document.getElementById('copyBtnText');
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+        }
+
+        // Regenerate API key
+        async function regenerateApiKey() {
+            if (!confirm("Regenerate your personal secret API key? This will require updating your Roblox game scripts.")) return;
+            const res = await fetch(`${API}/auth/key/regenerate`, { method: 'POST', headers: getAuthHeaders() });
+            const data = await res.json();
+            if (data.success) {
+                currentUser.apiKey = data.apiKey;
+                updateUserUI();
+            }
+        }
+
+        // SDK Modal
+        function openSdkModal() { document.getElementById('sdkModal').classList.remove('hidden'); }
+        function closeSdkModal() { document.getElementById('sdkModal').classList.add('hidden'); }
+
+        async function copyFullSdkCode() {
+            try {
+                const res = await fetch(`${API}/sdk/code`);
+                const data = await res.json();
+                navigator.clipboard.writeText(data.code);
+                const btn = document.getElementById('copySdkBtnText');
+                btn.innerText = 'Copied to Clipboard!';
+                setTimeout(() => { btn.innerText = 'Copy Full Luau Code'; }, 2500);
+            } catch (e) {
+                alert("Failed to copy code: " + e.message);
+            }
+        }
+
+        // Flag modal & actions
+        function openAddFlagModal() { document.getElementById('addFlagModal').classList.remove('hidden'); }
+        function closeAddFlagModal() { document.getElementById('addFlagModal').classList.add('hidden'); }
+
+        async function submitNewFlag() {
+            const key = document.getElementById('flagKeyInput').value.trim();
+            const desc = document.getElementById('flagDescInput').value.trim();
+            const val = document.getElementById('flagValInput').value === 'true';
+
+            if (!key) { alert("Flag key is required"); return; }
+
+            await fetch(`${API}/liveops/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value: val, description: desc, changedBy: currentUser ? currentUser.username : 'Studio Admin' })
+            });
+
+            document.getElementById('flagKeyInput').value = '';
+            document.getElementById('flagDescInput').value = '';
+            closeAddFlagModal();
+            refreshData();
+        }
+
+        async function toggleFlag(key, value) {
+            await fetch(`${API}/liveops/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value, changedBy: currentUser ? currentUser.username : 'Studio Admin' })
+            });
+            refreshData();
+        }
+
+        async function deleteFlag(key) {
+            if (!confirm(`Delete flag "${key}"?`)) return;
+            await fetch(`${API}/liveops/config/${encodeURIComponent(key)}`, { method: 'DELETE' });
+            refreshData();
+        }
+
+        // Item modal & actions
+        function openListItemModal() { document.getElementById('listItemModal').classList.remove('hidden'); }
+        function closeListItemModal() { document.getElementById('listItemModal').classList.add('hidden'); }
+
+        async function submitNewItem() {
+            const itemId = document.getElementById('itemIdentifierInput').value.trim();
+            const price = Number(document.getElementById('itemPriceInput').value);
+            const sellerName = document.getElementById('itemSellerInput').value.trim() || (currentUser ? currentUser.username : 'Admin');
+
+            if (!itemId || !price) { alert("Item ID and price are required"); return; }
+
+            const sellerId = Math.floor(10000000 + Math.random() * 90000000).toString();
+
+            await fetch(`${API}/marketplace/list`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sellerId, sellerName, itemId, price })
+            });
+
+            document.getElementById('itemIdentifierInput').value = '';
+            document.getElementById('itemPriceInput').value = '';
+            closeListItemModal();
+            refreshData();
+        }
+
+        // Broadcast actions
+        async function sendBroadcast() {
+            const input = document.getElementById('broadcastInput');
+            const message = input.value.trim();
+            if (!message) return;
+            await fetch(`${API}/liveops/broadcast`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, durationSeconds: 60, severity: 'ALERT' })
+            });
+            input.value = '';
+            refreshData();
+        }
+
+        async function clearBroadcast() {
+            await fetch(`${API}/liveops/broadcast/clear`, { method: 'POST' });
+            refreshData();
+        }
+
+        async function buyItem(listingId, price) {
+            const buyerId = Math.floor(10000000 + Math.random() * 90000000);
+            const buyerName = "Player_" + buyerId.toString().slice(-4);
+            const res = await fetch(`${API}/marketplace/buy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ buyerId, buyerName, listingId })
+            });
+            const result = await res.json();
+            if (result.success) {
+                alert(`Transaction Complete! ${buyerName} purchased item for ${price} coins!`);
+            } else {
+                alert(`Transaction Failed: ${result.error}`);
+            }
+            refreshData();
+        }
+
+        // Initialize
+        initAuth();
+        connectWS();
+        refreshData();
+        setInterval(refreshData, 3000);
+    </script>
+</body>
+</html>
