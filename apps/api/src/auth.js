@@ -58,12 +58,12 @@ class AuthManager {
         const cleanEmail = (email || '').trim().toLowerCase();
         const user = db.findUserByEmail(cleanEmail);
         if (!user) {
-            return { success: false, error: 'Invalid email or password.' };
+            return { success: false, error: 'No account found with this email. Click "Create Account" above to register!' };
         }
 
         const hash = await this._hashPassword(password, user.salt);
         if (hash !== user.passwordHash) {
-            return { success: false, error: 'Invalid email or password.' };
+            return { success: false, error: 'Incorrect password. Please try again.' };
         }
 
         const sessionToken = crypto.randomBytes(32).toString('hex');

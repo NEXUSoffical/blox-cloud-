@@ -787,16 +787,20 @@ end)`;
             const tabSignInBtn = document.getElementById('tabSignInBtn');
             const tabSignUpBtn = document.getElementById('tabSignUpBtn');
 
+            // Clear any previous error messages
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('signUpError').classList.add('hidden');
+
             if (tab === 'signin') {
                 signInForm.classList.remove('hidden');
                 signUpForm.classList.add('hidden');
-                tabSignInBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg bg-cyan-600 text-white transition-all';
-                tabSignUpBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+                tabSignInBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all';
+                tabSignUpBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all';
             } else {
                 signInForm.classList.add('hidden');
                 signUpForm.classList.remove('hidden');
-                tabSignUpBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg bg-cyan-600 text-white transition-all';
-                tabSignInBtn.className = 'flex-1 py-1.5 font-semibold rounded-lg text-slate-400 hover:text-white transition-all';
+                tabSignUpBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all';
+                tabSignInBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all';
             }
         }
 
@@ -814,7 +818,11 @@ end)`;
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success) {
-                    errDiv.innerText = data.error || 'Login failed';
+                    if (data.error && data.error.includes('No account found')) {
+                        errDiv.innerHTML = `${data.error}<br><button type="button" onclick="switchAuthTab('signup'); document.getElementById('regEmail').value = '${email}'; document.getElementById('loginError').classList.add('hidden');" class="mt-2 inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-bold hover:bg-cyan-500/30 transition-all"><span>Switch to Create Account</span> <i class="fa-solid fa-arrow-right text-[10px]"></i></button>`;
+                    } else {
+                        errDiv.innerText = data.error || 'Login failed';
+                    }
                     errDiv.classList.remove('hidden');
                     return;
                 }

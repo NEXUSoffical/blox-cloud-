@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.resolve(__dirname, '../../data');
+const dataDir = path.resolve(__dirname, '../../../data');
 const dbFile = path.resolve(dataDir, 'database.json');
 
 // Ensure data directory exists
@@ -27,6 +27,10 @@ const defaultSchema = {
 class PersistentDB {
     constructor() {
         this.data = this._load();
+        // Ensure database file is written immediately if missing
+        if (!fs.existsSync(dbFile)) {
+            this.save();
+        }
     }
 
     _load() {
