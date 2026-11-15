@@ -1,0 +1,14 @@
+{
+  "name": "blox-cloud",
+  "version": "1.0.0",
+  "description": "The Ultimate Backend-as-a-Service for Roblox Games",
+  "main": "apps/api/src/server.js",
+  "scripts": {
+    "start": "node apps/api/src/server.js",
+    "build": "cd apps/api && npm install",
+    "test:simulator": "node tests/simulator.js"
+  },
+  "keywords": ["roblox", "matchmaking", "liveops", "gaming", "baas"],
+  "author": "BloxCloud",
+  "license": "ISC"
+}
