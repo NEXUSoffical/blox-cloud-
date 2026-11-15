@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Exact CSS gradient: from-blue-600 via-indigo-600 to-cyan-400 -->
+    <linearGradient id="bgGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+
+    <!-- Border highlight -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.3" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded icon (rounded-xl proportional to 1024px) -->
+  <rect x="64" y="64" width="896" height="896" rx="220" ry="220" fill="url(#bgGrad)" />
+  <rect x="64" y="64" width="896" height="896" rx="220" ry="220" fill="none" stroke="url(#borderGrad)" stroke-width="16" />
+
+  <!-- Exact FontAwesome 6 Solid Cube Icon in pure crisp white -->
+  <!-- Scaled and centered with optical balance -->
+  <g transform="translate(262, 262) scale(0.9765)">
+    <path fill="#ffffff" d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65.3v174.3l-160 80z"/>
+  </g>
+</svg>
