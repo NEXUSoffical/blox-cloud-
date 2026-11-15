@@ -16,6 +16,7 @@ const telemetry = require('./telemetry');
 const matchmaker = require('./matchmaker');
 const liveops = require('./liveops');
 const marketplace = require('./marketplace');
+const db = require('./db');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -367,6 +368,15 @@ wss.on('connection', (ws) => {
 });
 
 // Start Server
-server.listen(port, () => {
-    console.log(`[BloxCloud] API, Auth & Billing Server listening on http://localhost:${port}`);
-});
+async function startServer() {
+    try {
+        await db.initCloud();
+    } catch (err) {
+        console.error('[BloxCloud] Cloud DB initialization warning:', err);
+    }
+    server.listen(port, () => {
+        console.log(`[BloxCloud] API, Auth & Billing Server listening on http://localhost:${port}`);
+    });
+}
+
+startServer();
