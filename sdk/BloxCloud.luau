@@ -22,7 +22,7 @@ BloxCloud.__index = BloxCloud
 -- Global internal state
 local _config = {
     apiKey = "",
-    baseUrl = "http://localhost:3001",
+    baseUrl = "https://bloxcloud.world",
     gameId = "game_default",
     pollingInterval = 3,
     telemetryInterval = 15,

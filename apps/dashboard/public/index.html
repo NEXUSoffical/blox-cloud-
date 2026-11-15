@@ -671,7 +671,7 @@
 
     <!-- Client-side script connecting to API & WebSocket -->
     <script>
-        const API = 'http://localhost:3001/api/v1';
+        const API = `${window.location.origin}/api/v1`;
         let ws;
         let currentUser = null;
         let authToken = localStorage.getItem('bloxcloud_token') || '';
@@ -684,7 +684,8 @@
         }
 
         function connectWS() {
-            ws = new WebSocket('ws://localhost:3001');
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
 
             ws.onopen = () => {
                 document.getElementById('wsStatus').innerText = 'LIVE SYNC ACTIVE';
@@ -746,9 +747,10 @@
 
             // Key display
             document.getElementById('apiKeyDisplay').innerText = currentUser.apiKey;
+            const liveOrigin = window.location.origin;
             const snippet = 
 `local BloxCloud = require(game.ReplicatedStorage.BloxCloud).Init("${currentUser.apiKey}", {
-    baseUrl = "http://localhost:3001"
+    baseUrl = "${liveOrigin}"
 })
 
 -- Listen for live config & emergency kill-switches
