@@ -83,6 +83,12 @@ const PLANS = {
     },
 };
 
+const DEFAULT_CHECKOUT_URLS = {
+    PRO: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/176e77bf-c528-478f-86e6-5ec14b591cd8',
+    STUDIO: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/f0ac28e3-bdd5-463c-b164-bd6436e03fce',
+    ENTERPRISE: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/049a843a-be3e-4660-a965-fcd9569cff32',
+};
+
 class BillingManager {
     getPlans() {
         return PLANS;
@@ -130,7 +136,7 @@ class BillingManager {
         }
 
         // Check if direct Lemon Squeezy checkout URL is configured for this plan
-        const customUrl = process.env[`LEMONSQUEEZY_${planId}_URL`];
+        const customUrl = process.env[`LEMONSQUEEZY_${planId}_URL`] || DEFAULT_CHECKOUT_URLS[planId];
         if (customUrl) {
             const sep = customUrl.includes('?') ? '&' : '?';
             const checkoutUrl = `${customUrl}${sep}checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${encodeURIComponent(user.id)}&checkout[custom][plan_id]=${encodeURIComponent(planId)}`;
