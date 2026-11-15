@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500">
+  <defs>
+    <!-- Background Gradients -->
+    <radialGradient id="ambientGlow" cx="45%" cy="15%" r="70%">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.6" />
+      <stop offset="35%" stop-color="#1e3a8a" stop-opacity="0.4" />
+      <stop offset="70%" stop-color="#0b1739" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="1" />
+    </radialGradient>
+
+    <radialGradient id="cubeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
+      <stop offset="60%" stop-color="#2563eb" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Cube Gradients -->
+    <linearGradient id="cubeBg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+
+    <linearGradient id="cubeBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.3" />
+    </linearGradient>
+
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+
+    <!-- Grid Pattern -->
+    <pattern id="cyberGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#3b82f6" stroke-width="0.75" stroke-opacity="0.12" />
+    </pattern>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1500" height="500" fill="#020617" />
+  <rect width="1500" height="500" fill="url(#ambientGlow)" />
+  <rect width="1500" height="500" fill="url(#cyberGrid)" />
+
+  <!-- Atmospheric Glow Orb Behind Cube -->
+  <circle cx="1200" cy="250" r="280" fill="url(#cubeGlow)" />
+
+  <!-- High-Tech Floating Grid Lines (Perspective Plane on the right) -->
+  <g stroke="#38bdf8" stroke-opacity="0.15" stroke-width="1.5">
+    <line x1="900" y1="460" x2="1500" y2="460" />
+    <line x1="950" y1="420" x2="1500" y2="420" />
+    <line x1="1020" y1="380" x2="1500" y2="380" />
+    <line x1="1100" y1="500" x2="1250" y2="360" />
+    <line x1="1250" y1="500" x2="1350" y2="360" />
+    <line x1="1400" y1="500" x2="1450" y2="360" />
+  </g>
+
+  <!-- ================= LEFT CONTENT AREA ================= -->
+  <!-- Note: Leftmost 280px bottom area is left clear for X avatar overlap -->
+  <g transform="translate(360, 0)">
+    
+    <!-- Top Pill Badge -->
+    <g transform="translate(0, 110)">
+      <rect x="0" y="0" width="310" height="34" rx="17" fill="#1e3a8a" fill-opacity="0.5" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="1.5" />
+      <circle cx="18" cy="17" r="4.5" fill="#38bdf8" />
+      <text x="32" y="22" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#7dd3fc" letter-spacing="2">ROBLOX BACKEND-AS-A-SERVICE</text>
+    </g>
+
+    <!-- Main Headline: BloxCloud -->
+    <text x="0" y="215" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="76" font-weight="900" fill="url(#textGrad)" letter-spacing="-1.5">BloxCloud</text>
+
+    <!-- Subtitle -->
+    <text x="2" y="260" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="22" font-weight="500" fill="#93c5fd" letter-spacing="0.2">
+      The Enterprise Cloud Infrastructure for Serious Roblox Studios.
+    </text>
+
+    <!-- 3 Feature Badges Row -->
+    <g transform="translate(0, 305)">
+      <!-- Badge 1: Matchmaking -->
+      <g transform="translate(0, 0)">
+        <rect width="180" height="42" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#3b82f6" stroke-opacity="0.4" stroke-width="1.2" />
+        <text x="18" y="26" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#ffffff">⚡ ELO Matchmaking</text>
+      </g>
+      <!-- Badge 2: Anti-Dupe Economy -->
+      <g transform="translate(192, 0)">
+        <rect width="175" height="42" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#3b82f6" stroke-opacity="0.4" stroke-width="1.2" />
+        <text x="18" y="26" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#ffffff">🛡️ Global Economy</text>
+      </g>
+      <!-- Badge 3: LiveOps Kill Switches -->
+      <g transform="translate(379, 0)">
+        <rect width="170" height="42" rx="12" fill="#0f172a" fill-opacity="0.75" stroke="#3b82f6" stroke-opacity="0.4" stroke-width="1.2" />
+        <text x="18" y="26" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="13" font-weight="700" fill="#ffffff">📡 LiveOps Sentry</text>
+      </g>
+    </g>
+
+    <!-- Live URL & Call to Action -->
+    <g transform="translate(2, 385)">
+      <circle cx="8" cy="8" r="4.5" fill="#10b981" />
+      <text x="22" y="13" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#38bdf8" letter-spacing="0.5">bloxcloud.world</text>
+      <text x="165" y="13" font-family="Google Sans, DejaVu Sans, sans-serif" font-size="14" font-weight="500" fill="#64748b">• Drop-in Luau SDK ready</text>
+    </g>
+
+  </g>
+
+  <!-- ================= RIGHT SIDE 3D HERO LOGO ================= -->
+  <g transform="translate(1100, 140)">
+    <!-- Container Badge -->
+    <rect x="0" y="0" width="220" height="220" rx="55" ry="55" fill="url(#cubeBg)" stroke="url(#cubeBorder)" stroke-width="5" />
+    
+    <!-- Exact FontAwesome 6 Solid Cube Scaled -->
+    <g transform="translate(48, 48) scale(0.242)">
+      <path fill="#ffffff" d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65.3v174.3l-160 80z"/>
+    </g>
+  </g>
+
+  <!-- High-Tech Neon Pulse Wave (Telemetry Heartbeat Accent in Bottom Right) -->
+  <path d="M 1050 440 L 1150 440 L 1170 420 L 1190 460 L 1210 410 L 1230 450 L 1250 440 L 1450 440" 
+        fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-opacity="0.75" />
+
+</svg>
