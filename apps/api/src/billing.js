@@ -1,9 +1,10 @@
 /**
- * BloxCloud Billing & Subscription Manager (Persistent)
+ * BloxCloud Billing & Subscription Manager with Stripe Payments
  */
 
 const crypto = require('crypto');
 const db = require('./db');
+const Stripe = require('stripe');
 
 const PLANS = {
     FREE: {
@@ -84,6 +85,17 @@ const PLANS = {
 };
 
 class BillingManager {
+    getStripe() {
+        const key = process.env.STRIPE_SECRET_KEY;
+        if (!key) return null;
+        try {
+            return new Stripe(key);
+        } catch (e) {
+            console.error('[BloxCloud Stripe] Init error:', e);
+            return null;
+        }
+    }
+
     getPlans() {
         return PLANS;
     }
@@ -92,7 +104,7 @@ class BillingManager {
         return PLANS[planId] || PLANS.FREE;
     }
 
-    createSubscription(user, planId, paymentMethod = 'CARD_MOCK_SUCCESS') {
+    createSubscription(user, planId, paymentMethod = 'CARD_SUCCESS') {
         const plan = PLANS[planId];
         if (!plan) return { success: false, error: 'Invalid plan selected.' };
 
@@ -117,6 +129,109 @@ class BillingManager {
             invoice,
             plan,
         };
+    }
+
+    async createCheckoutSession(user, planId, origin) {
+        const plan = PLANS[planId];
+        if (!plan) return { success: false, error: 'Invalid plan selected.' };
+
+        // Free tier does not require Stripe checkout
+        if (plan.price === 0) {
+            const sub = this.createSubscription(user, 'FREE', 'FREE_TIER');
+            return { success: true, free: true, subscription: sub };
+        }
+
+        const stripe = this.getStripe();
+        if (!stripe) {
+            return {
+                success: false,
+                requiresConfig: true,
+                error: 'STRIPE_SECRET_KEY is not configured in environment variables.',
+                plan,
+            };
+        }
+
+        try {
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [{
+                    price_data: {
+                        currency: 'usd',
+                        product_data: {
+                            name: `BloxCloud ${plan.name} Tier`,
+                            description: plan.features.slice(0, 3).join(' • '),
+                        },
+                        unit_amount: plan.price * 100, // Cents
+                        recurring: { interval: 'month' },
+                    },
+                    quantity: 1,
+                }],
+                mode: 'subscription',
+                customer_email: user.email,
+                client_reference_id: user.id,
+                metadata: {
+                    userId: user.id,
+                    planId: planId,
+                },
+                success_url: `${origin}/?session_id={CHECKOUT_SESSION_ID}&plan=${planId}&status=success`,
+                cancel_url: `${origin}/?status=cancelled`,
+            });
+
+            return {
+                success: true,
+                url: session.url,
+                sessionId: session.id,
+            };
+        } catch (err) {
+            console.error('[BloxCloud Stripe] Checkout creation error:', err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    async verifyAndActivateSession(sessionId) {
+        const stripe = this.getStripe();
+        if (!stripe) return { success: false, error: 'Stripe not configured' };
+
+        try {
+            const session = await stripe.checkout.sessions.retrieve(sessionId);
+            if (!session) return { success: false, error: 'Checkout session not found' };
+
+            const userId = session.client_reference_id || (session.metadata && session.metadata.userId);
+            const planId = session.metadata && session.metadata.planId;
+
+            if (!userId || !planId) {
+                return { success: false, error: 'Session metadata missing userId or planId' };
+            }
+
+            const user = db.findUserById(userId);
+            if (!user) return { success: false, error: 'User not found' };
+
+            // Record invoice
+            const invoice = {
+                id: 'inv_' + (session.payment_intent || session.subscription || crypto.randomUUID().slice(0, 8)),
+                userId: user.id,
+                planId: planId,
+                planName: PLANS[planId] ? PLANS[planId].name : planId,
+                amount: (session.amount_total || (PLANS[planId] ? PLANS[planId].price * 100 : 0)) / 100,
+                currency: 'USD',
+                status: 'PAID',
+                paymentMethod: 'STRIPE_CARD',
+                timestamp: Date.now(),
+                nextBillingDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            };
+
+            db.addInvoice(invoice);
+
+            return {
+                success: true,
+                userId: user.id,
+                planId,
+                invoice,
+            };
+        } catch (err) {
+            console.error('[BloxCloud Stripe] Verification error:', err);
+            return { success: false, error: err.message };
+        }
     }
 
     getUserInvoices(userId) {

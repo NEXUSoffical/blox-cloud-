@@ -124,13 +124,50 @@ app.post('/api/v1/auth/key/regenerate', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// BILLING & SUBSCRIPTION ROUTES
+// BILLING & SUBSCRIPTION ROUTES (STRIPE POWERED)
 // -----------------------------------------------------------------------------
 
 app.get('/api/v1/billing/plans', (req, res) => {
     res.json({ plans: billing.getPlans() });
 });
 
+// Create Stripe Checkout Session
+app.post('/api/v1/billing/checkout-session', async (req, res) => {
+    const user = getAuthUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { planId } = req.body;
+    const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+
+    const result = await billing.createCheckoutSession(user, planId, origin);
+    if (result.free) {
+        auth.updateUserPlan(user.id, 'FREE');
+        broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId: 'FREE' });
+        return res.json({ success: true, user: auth._getSafeUser(db.findUserById(user.id)) });
+    }
+
+    res.json(result);
+});
+
+// Verify & Activate Session after Stripe Redirect
+app.post('/api/v1/billing/verify-session', async (req, res) => {
+    const user = getAuthUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { sessionId } = req.body;
+    if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
+
+    const result = await billing.verifyAndActivateSession(sessionId);
+    if (!result.success) {
+        return res.status(400).json(result);
+    }
+
+    auth.updateUserPlan(user.id, result.planId);
+    broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId: result.planId });
+    res.json({ success: true, user: auth._getSafeUser(db.findUserById(user.id)), invoice: result.invoice });
+});
+
+// Direct plan activation / testing fallback
 app.post('/api/v1/billing/subscribe', (req, res) => {
     const user = getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -143,7 +180,7 @@ app.post('/api/v1/billing/subscribe', (req, res) => {
 
     auth.updateUserPlan(user.id, planId);
     broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId });
-    res.json({ success: true, subscription: subResult, user: auth._getSafeUser(auth.users.get(user.id)) });
+    res.json({ success: true, subscription: subResult, user: auth._getSafeUser(db.findUserById(user.id)) });
 });
 
 app.get('/api/v1/billing/invoices', (req, res) => {

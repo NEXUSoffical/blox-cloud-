@@ -550,11 +550,70 @@
 
             </div>
 
+            <!-- Stripe Security & Payment Trust Footer -->
+            <div class="pt-3 border-t border-blue-500/30 flex flex-wrap items-center justify-between text-xs text-blue-200">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-brands fa-stripe text-3xl text-indigo-400"></i>
+                    <span class="text-[11px] text-blue-300">Official Stripe Checkout • 256-Bit SSL Encrypted • Card, Apple Pay & Google Pay</span>
+                </div>
+                <div class="flex items-center space-x-3 text-sm text-blue-300">
+                    <i class="fa-brands fa-cc-visa text-blue-400"></i>
+                    <i class="fa-brands fa-cc-mastercard text-amber-400"></i>
+                    <i class="fa-brands fa-cc-amex text-cyan-400"></i>
+                    <i class="fa-brands fa-apple-pay text-white"></i>
+                    <i class="fa-brands fa-google-pay text-white"></i>
+                </div>
+            </div>
+
             <!-- Invoices Ledger -->
             <div class="pt-3 border-t border-blue-500/30 space-y-2">
                 <div class="text-xs font-bold text-blue-200 uppercase tracking-wider">Billing History & Receipts</div>
                 <div id="invoicesList" class="space-y-1 text-xs text-blue-200">
                     <div class="text-blue-300/60 text-center py-2">No invoices billed yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Stripe Configuration & Test Mode Helper -->
+    <div id="stripeConfigModal" class="hidden fixed inset-0 bg-[#020b1f]/85 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+        <div class="glass-panel bg-[#0b1739]/95 border border-blue-400/50 w-full max-w-lg rounded-2xl p-6 space-y-5 shadow-2xl shadow-blue-600/30">
+            <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center text-xl shadow-md shadow-indigo-500/30">
+                        <i class="fa-brands fa-stripe"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-white text-base">Stripe Payments Setup</h3>
+                        <p class="text-xs text-blue-200">Connect your Stripe account to collect live subscription revenue.</p>
+                    </div>
+                </div>
+                <button onclick="closeStripeConfigModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3.5 text-xs text-blue-200">
+                <p>
+                    To enable <strong>live customer credit card payments</strong> on BloxCloud, add your Stripe Secret Key to Render:
+                </p>
+                <div class="p-3.5 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2 font-mono text-[11px]">
+                    <div class="text-cyan-300 font-bold font-sans text-xs">Steps in Render:</div>
+                    <div class="text-slate-300">1. Go to <span class="text-white font-bold">dashboard.render.com</span> → <span class="text-white">blox-cloud-</span> → <span class="text-white">Environment</span></div>
+                    <div class="text-slate-300">2. Add Environment Variable:</div>
+                    <div class="p-2 rounded bg-black/40 border border-blue-500/20 text-cyan-300">
+                        Key: <strong>STRIPE_SECRET_KEY</strong><br>
+                        Value: <strong>sk_live_...</strong> (or <strong>sk_test_...</strong>)
+                    </div>
+                    <div class="text-slate-300">3. Click <span class="text-white font-bold">Save Changes</span>.</div>
+                </div>
+
+                <div class="pt-2 flex items-center justify-between gap-3">
+                    <a href="https://dashboard.stripe.com/apikeys" target="_blank" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center space-x-1.5 transition-all shadow-md shadow-indigo-600/30">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        <span>Get Stripe API Key</span>
+                    </a>
+                    <button id="btnSandboxUpgrade" onclick="activateSandboxPlan()" class="px-3.5 py-2 rounded-xl bg-blue-950/70 hover:bg-blue-900/60 border border-blue-500/30 text-cyan-300 font-bold transition-all">
+                        ⚡ Activate in Test/Sandbox Mode
+                    </button>
                 </div>
             </div>
         </div>
@@ -735,6 +794,7 @@
                     currentUser = data.user;
                     updateUserUI();
                     document.getElementById('authModal').classList.add('hidden');
+                    await checkStripeCallback();
                 } else {
                     localStorage.removeItem('bloxcloud_token');
                     authToken = '';
@@ -968,30 +1028,123 @@ end)`;
             }
         }
 
+        let pendingPlanSelection = null;
+
         function closeBillingModal() {
             document.getElementById('billingModal').classList.add('hidden');
         }
 
-        async function selectPlan(planId) {
-            if (!confirm(`Upgrade subscription to the ${planId} Plan?`)) return;
+        function closeStripeConfigModal() {
+            document.getElementById('stripeConfigModal').classList.add('hidden');
+        }
+
+        function showStripeConfigModal(planId) {
+            pendingPlanSelection = planId;
+            document.getElementById('stripeConfigModal').classList.remove('hidden');
+        }
+
+        async function activateSandboxPlan() {
+            if (!pendingPlanSelection) return;
+            const planId = pendingPlanSelection;
+            closeStripeConfigModal();
 
             try {
                 const res = await fetch(`${API}/billing/subscribe`, {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ planId, paymentMethod: 'CREDIT_CARD_VISA_***4242' })
+                    body: JSON.stringify({ planId, paymentMethod: 'TEST_SANDBOX_CARD' })
                 });
                 const data = await res.json();
                 if (data.success) {
                     currentUser.plan = planId;
                     updateUserUI();
-                    alert(`Subscription successfully activated! Welcome to the ${planId} Tier.`);
+                    alert(`⚡ [Test Mode] Activated the ${planId} Tier! Once you add STRIPE_SECRET_KEY in Render, live card checkouts will process via Stripe.`);
                     openBillingModal();
                 } else {
                     alert(`Failed to activate plan: ${data.error}`);
                 }
             } catch (e) {
                 alert(`Error: ${e.message}`);
+            }
+        }
+
+        async function selectPlan(planId) {
+            if (planId === 'FREE') {
+                if (!confirm(`Switch back to the Free plan?`)) return;
+                try {
+                    const res = await fetch(`${API}/billing/checkout-session`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ planId: 'FREE' })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        currentUser.plan = 'FREE';
+                        updateUserUI();
+                        openBillingModal();
+                        alert('Your plan has been changed to Free Tier.');
+                    }
+                } catch (e) {
+                    alert('Error changing plan: ' + e.message);
+                }
+                return;
+            }
+
+            // Stripe Checkout for PRO, STUDIO, ENTERPRISE
+            const btn = document.getElementById(`btnPlan${planId}`);
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Starting Stripe...`;
+
+            try {
+                const res = await fetch(`${API}/billing/checkout-session`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ planId })
+                });
+                const data = await res.json();
+                if (btn) btn.innerHTML = originalText;
+
+                if (data.success && data.url) {
+                    // Redirect to official Stripe secure checkout page
+                    window.location.href = data.url;
+                } else if (data.requiresConfig) {
+                    // Stripe key not added yet in Render Environment
+                    showStripeConfigModal(planId);
+                } else {
+                    alert(`Unable to start checkout: ${data.error || 'Check server configuration'}`);
+                }
+            } catch (e) {
+                if (btn) btn.innerHTML = originalText;
+                alert(`Connection error: ${e.message}`);
+            }
+        }
+
+        async function checkStripeCallback() {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session_id');
+            const status = params.get('status');
+
+            if (sessionId && status === 'success') {
+                try {
+                    const res = await fetch(`${API}/billing/verify-session`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ sessionId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        currentUser.plan = data.planId;
+                        updateUserUI();
+                        alert(`🎉 Stripe Payment Verified! Welcome to the BloxCloud ${data.planId} Tier.`);
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        openBillingModal();
+                    }
+                } catch (e) {
+                    console.error('Failed to verify Stripe session:', e);
+                }
+            } else if (status === 'cancelled') {
+                alert('Stripe checkout was cancelled. You have not been charged.');
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
 
