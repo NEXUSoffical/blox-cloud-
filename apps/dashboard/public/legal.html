@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxCloud Legal | Terms of Service, Privacy & Refund Policy</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/logo-512.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 50% -15%, #2563eb 0%, #1d4ed8 20%, #0f2b6b 45%, #081438 75%, #020617 100%);
+            background-attachment: fixed;
+            color: #f8fafc;
+        }
+        .glass-panel {
+            background: rgba(11, 24, 54, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(96, 165, 250, 0.35);
+            box-shadow: 0 12px 35px -8px rgba(29, 78, 216, 0.45), inset 0 1px 0 rgba(191, 219, 254, 0.15);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-200 antialiased flex flex-col">
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-40 bg-[#06102b]/90 backdrop-blur-md border-b border-blue-500/25 px-6 py-3.5 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3 group">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1px] shadow-lg shadow-blue-500/40">
+                <div class="w-full h-full bg-[#081229] rounded-xl flex items-center justify-center">
+                    <i class="fa-solid fa-cube text-cyan-400 text-sm"></i>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="font-extrabold text-base tracking-tight text-white group-hover:text-cyan-300 transition-colors">BloxCloud</span>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">LEGAL</span>
+                </div>
+                <span class="text-[10px] text-blue-200">Terms, Privacy &amp; Refund Policies</span>
+            </div>
+        </a>
+
+        <div class="flex items-center space-x-3">
+            <a href="/docs" class="px-3.5 py-1.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/60 border border-blue-500/30 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-book-bookmark text-cyan-400 text-xs"></i>
+                <span>Documentation</span>
+            </a>
+            <a href="/" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-600/30 border border-blue-400/40 transition-all">
+                <i class="fa-solid fa-chart-line text-xs"></i>
+                <span>Open Dashboard</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main class="max-w-4xl mx-auto w-full px-6 py-10 flex-1 space-y-10 text-sm leading-relaxed">
+
+        <!-- Quick Nav -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-center gap-4 text-xs font-semibold">
+            <a href="#terms" class="px-3.5 py-1.5 rounded-lg bg-blue-950/70 border border-blue-500/30 text-cyan-300 hover:bg-blue-900/50">1. Terms of Service</a>
+            <a href="#privacy" class="px-3.5 py-1.5 rounded-lg bg-blue-950/70 border border-blue-500/30 text-cyan-300 hover:bg-blue-900/50">2. Privacy Policy (UK GDPR)</a>
+            <a href="#refunds" class="px-3.5 py-1.5 rounded-lg bg-blue-950/70 border border-blue-500/30 text-cyan-300 hover:bg-blue-900/50">3. Billing, Cancellation &amp; Refunds</a>
+        </div>
+
+        <!-- Terms of Service -->
+        <section id="terms" class="glass-panel rounded-2xl p-8 space-y-4">
+            <h1 class="text-xl font-extrabold text-white">1. Terms of Service</h1>
+            <p class="text-xs text-blue-300">Last Updated: November 2026</p>
+
+            <p class="text-slate-300 text-xs">
+                Welcome to <strong>BloxCloud</strong> (<a href="https://bloxcloud.world" class="text-cyan-400 underline">https://bloxcloud.world</a>). By creating a developer account, accessing our web dashboard, or integrating the BloxCloud Luau SDK into your game servers, you agree to be bound by these Terms of Service.
+            </p>
+
+            <h2 class="font-bold text-white text-xs pt-2">1.1 Service Description &amp; Independence</h2>
+            <p class="text-slate-300 text-xs">
+                BloxCloud is an independent B2B Backend-as-a-Service (BaaS) and LiveOps platform providing server telemetry, remote feature flags, skill-based matchmaking, and cross-server item ledger tooling for game developers. <strong>BloxCloud is an independent software provider and is not affiliated with, endorsed by, or sponsored by Roblox Corporation.</strong>
+            </p>
+
+            <h2 class="font-bold text-white text-xs pt-2">1.2 Developer Responsibilities &amp; Acceptable Use</h2>
+            <ul class="list-disc pl-5 space-y-1.5 text-slate-300 text-xs">
+                <li>You are responsible for keeping your studio account credentials and secret API keys (<code class="text-cyan-300">bc_live_...</code>) confidential and stored only in server-side scripts (<code class="text-cyan-300">ServerScriptService</code>).</li>
+                <li>You must comply with the Roblox Terms of Use and Community Standards in all games connected to BloxCloud.</li>
+                <li>You may not use BloxCloud to store real-world personal data of players (such as real names, home addresses, or payment details) or exceed your plan's rate limits (600 requests/minute) via automated abuse.</li>
+            </ul>
+
+            <h2 class="font-bold text-white text-xs pt-2">1.3 Service Availability &amp; Limitation of Liability</h2>
+            <p class="text-slate-300 text-xs">
+                BloxCloud is provided on an "as-is" and "as-available" basis. While we maintain multi-tenant isolation and persistent cloud database backups, BloxCloud’s total aggregate liability for any claim arising out of or relating to the service shall not exceed the total subscription fees paid by your studio in the preceding three (3) months.
+            </p>
+        </section>
+
+        <!-- Privacy Policy -->
+        <section id="privacy" class="glass-panel rounded-2xl p-8 space-y-4">
+            <h1 class="text-xl font-extrabold text-white">2. Privacy Policy (UK GDPR &amp; Data Protection)</h1>
+            <p class="text-xs text-blue-300">Last Updated: November 2026</p>
+
+            <h2 class="font-bold text-white text-xs pt-2">2.1 Data We Collect</h2>
+            <ul class="list-disc pl-5 space-y-1.5 text-slate-300 text-xs">
+                <li><strong>Studio Account Data:</strong> When you register on BloxCloud, we collect your developer email address, chosen username, studio name, and a salted cryptographic hash (`scrypt`) of your password.</li>
+                <li><strong>Game Server Telemetry:</strong> Connected Roblox game servers transmit non-personal operational metrics including server `JobId`, physics FPS, memory usage, script error stack traces, and numerical Roblox `UserId` / display username values solely for matchmaking queues and in-game trade locks.</li>
+                <li><strong>Billing Data:</strong> All payment card and PayPal details are processed directly by our Merchant of Record, <strong>Lemon Squeezy</strong>. BloxCloud never sees or stores your credit card number.</li>
+            </ul>
+
+            <h2 class="font-bold text-white text-xs pt-2">2.2 How We Use &amp; Protect Data</h2>
+            <p class="text-slate-300 text-xs">
+                Your data is used strictly to provide, secure, and isolate your studio's cloud infrastructure. Each studio account is logically partitioned so other studios cannot view or modify your servers, flags, matchmaking queues, or marketplace listings.
+            </p>
+
+            <h2 class="font-bold text-white text-xs pt-2">2.3 Data Retention &amp; Deletion Rights</h2>
+            <p class="text-slate-300 text-xs">
+                Under the UK General Data Protection Regulation (UK GDPR), you have the right to access, export, or request complete erasure of your studio account and associated data at any time by contacting us via our official X account (<a href="https://x.com/Bloxcloud1999" target="_blank" class="text-cyan-400 underline">@Bloxcloud1999</a>).
+            </p>
+        </section>
+
+        <!-- Billing & Refunds -->
+        <section id="refunds" class="glass-panel rounded-2xl p-8 space-y-4">
+            <h1 class="text-xl font-extrabold text-white">3. Billing, Cancellation &amp; Refund Policy</h1>
+            <p class="text-xs text-blue-300">Merchant of Record: Lemon Squeezy</p>
+
+            <h2 class="font-bold text-white text-xs pt-2">3.1 Subscriptions &amp; Taxes</h2>
+            <p class="text-slate-300 text-xs">
+                Paid plans (<strong>Studio Pro £24/mo</strong>, <strong>Scale Studio £79/mo</strong>, and <strong>Top Games Enterprise £199/mo</strong>) are billed monthly in advance through <strong>Lemon Squeezy</strong>, which acts as our Merchant of Record and handles global sales tax, UK VAT, and EU VAT compliance automatically.
+            </p>
+
+            <h2 class="font-bold text-white text-xs pt-2">3.2 Cancellations</h2>
+            <p class="text-slate-300 text-xs">
+                You may cancel your subscription at any time from your Lemon Squeezy billing receipt link or the BloxCloud Plans &amp; Billing panel. When you cancel, your studio retains full access to your paid tier features until the end of your current paid billing period, after which your account automatically transitions to the Free tier without data loss.
+            </p>
+
+            <h2 class="font-bold text-white text-xs pt-2">3.3 Refunds</h2>
+            <p class="text-slate-300 text-xs">
+                Because we offer a permanent <strong>Free Tier</strong> so studios can test every module before upgrading, monthly subscription charges are generally non-refundable once the billing cycle has begun. However, if you experience a verified platform outage or accidental duplicate charge within <strong>14 days</strong> of payment, contact us via <a href="https://x.com/Bloxcloud1999" target="_blank" class="text-cyan-400 underline">@Bloxcloud1999</a> and we will issue a full refund through Lemon Squeezy.
+            </p>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-blue-500/20 bg-[#040a1c] py-6 px-6 text-center text-xs text-slate-500">
+        BloxCloud &copy; 2026. Independent B2B SaaS Platform for Game Studios.
+    </footer>
+
+</body>
+</html>

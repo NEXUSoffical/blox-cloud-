@@ -22,7 +22,11 @@ class LiveOps {
             configObj[flag.key] = flag.value;
         }
 
-        const activeBroadcast = studioId ? (this.activeBroadcasts.get(studioId) || null) : null;
+        let activeBroadcast = studioId ? (this.activeBroadcasts.get(studioId) || null) : null;
+        if (activeBroadcast && activeBroadcast.expiresAt && Date.now() > activeBroadcast.expiresAt) {
+            this.activeBroadcasts.delete(studioId);
+            activeBroadcast = null;
+        }
 
         return {
             config: configObj,

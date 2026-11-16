@@ -1,18 +1,15 @@
 /**
- * BloxCloud Global Auction House & Marketplace Engine (Multi-Tenant)
+ * BloxCloud Global Auction House & Marketplace Engine (Persistent & Multi-Tenant)
  * Cross-server atomic item transactions preventing item duplication and race conditions.
- * Strictly isolated per studioId so different games never share economies or listings.
+ * Backed by db.js (PostgreSQL) so listings and transaction ledgers survive server restarts.
  */
 
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
+const db = require('./db');
 
 class Marketplace {
     constructor() {
-        // listingId -> listing (with studioId)
-        this.listings = new Map();
-        // Transaction ledger for audits
-        this.ledger = [];
         // Mutex / Locks for atomic buying
         this.locks = new Set();
     }
@@ -33,7 +30,7 @@ class Marketplace {
             createdAt: Date.now(),
         };
 
-        this.listings.set(listingId, listing);
+        db.saveListing(listing);
         return listing;
     }
 
@@ -48,7 +45,7 @@ class Marketplace {
         this.locks.add(listingId);
 
         try {
-            const listing = this.listings.get(listingId);
+            const listing = db.findListingById(listingId);
             if (!listing) {
                 return { success: false, error: 'LISTING_NOT_FOUND' };
             }
@@ -65,15 +62,16 @@ class Marketplace {
                 return { success: false, error: 'CANNOT_BUY_OWN_ITEM' };
             }
 
-            // 2. Mark as SOLD atomically
+            // 2. Mark as SOLD atomically and persist
             listing.status = 'SOLD';
             listing.soldTo = {
                 buyerId: String(buyerId),
                 buyerName: String(buyerName),
                 purchasedAt: Date.now(),
             };
+            db.saveListing(listing);
 
-            // 3. Record transaction in immutable ledger
+            // 3. Record transaction in persistent ledger
             const transaction = {
                 txId: 'tx_' + uuidv4().slice(0, 10),
                 studioId: listing.studioId || studioId,
@@ -87,8 +85,7 @@ class Marketplace {
                 timestamp: Date.now(),
             };
 
-            this.ledger.unshift(transaction);
-            if (this.ledger.length > 200) this.ledger.pop();
+            db.addTransaction(transaction);
 
             return {
                 success: true,
@@ -105,33 +102,28 @@ class Marketplace {
     }
 
     cancelListing(sellerId, listingId, studioId = null) {
-        const listing = this.listings.get(listingId);
+        const listing = db.findListingById(listingId);
         if (!listing) return { success: false, error: 'LISTING_NOT_FOUND' };
         if (studioId && listing.studioId && listing.studioId !== studioId) return { success: false, error: 'UNAUTHORIZED' };
         if (listing.sellerId !== String(sellerId)) return { success: false, error: 'UNAUTHORIZED' };
         if (listing.status !== 'ACTIVE') return { success: false, error: 'CANNOT_CANCEL_INACTIVE_ITEM' };
 
         listing.status = 'CANCELLED';
+        db.saveListing(listing);
         return { success: true };
     }
 
     getListings(studioId = null) {
-        return Array.from(this.listings.values())
-            .filter(l => l.status === 'ACTIVE' && (!studioId || l.studioId === studioId))
-            .sort((a, b) => b.createdAt - a.createdAt);
+        return db.getListings(studioId, true);
     }
 
     getLedger(studioId = null) {
-        if (!studioId) return this.ledger;
-        return this.ledger.filter(tx => tx.studioId === studioId);
+        return db.getLedger(studioId);
     }
 
     clearStudio(studioId) {
         if (!studioId) return;
-        for (const [id, l] of this.listings.entries()) {
-            if (l.studioId === studioId) this.listings.delete(id);
-        }
-        this.ledger = this.ledger.filter(tx => tx.studioId !== studioId);
+        db.resetLiveOpsAndMarket(studioId);
     }
 }
 

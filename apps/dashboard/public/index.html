@@ -386,6 +386,20 @@
 
     </main>
 
+    <!-- Footer -->
+    <footer class="border-t border-blue-500/20 bg-[#040a1c]/80 py-5 px-6 text-center text-xs text-slate-400 space-y-1.5">
+        <div>BloxCloud &copy; 2026. Enterprise Backend-as-a-Service &amp; LiveOps Platform for Roblox Studios.</div>
+        <div class="flex items-center justify-center space-x-4 text-[11px]">
+            <a href="/docs" class="hover:text-cyan-400 transition-colors">Documentation</a>
+            <span>&bull;</span>
+            <a href="/terms" class="hover:text-cyan-400 transition-colors">Terms of Service</a>
+            <span>&bull;</span>
+            <a href="/privacy" class="hover:text-cyan-400 transition-colors">Privacy Policy</a>
+            <span>&bull;</span>
+            <a href="/legal#refunds" class="hover:text-cyan-400 transition-colors">Refund Policy</a>
+        </div>
+    </footer>
+
     <!-- Modal: AUTHENTICATION (Sign In / Register) -->
     <div id="authModal" class="hidden fixed inset-0 bg-[#020b1f]/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
         <div class="glass-panel bg-[#0b1739]/95 border border-blue-400/50 w-full max-w-md rounded-2xl p-7 space-y-6 shadow-2xl shadow-blue-600/30 glow-blue">
@@ -444,10 +458,19 @@
             </form>
 
             <!-- Quick Demo Button -->
-            <div class="pt-2 border-t border-blue-500/30 text-center">
+            <div class="pt-2 border-t border-blue-500/30 text-center space-y-2">
                 <button onclick="loginDemoAccount()" class="text-xs text-blue-300 hover:text-cyan-300 font-medium transition-colors">
                     ⚡ Quick Test: Log In as Demo Studio Lead
                 </button>
+                <div class="flex items-center justify-center space-x-3 text-[11px] text-slate-400 pt-1">
+                    <a href="/docs" target="_blank" class="hover:text-cyan-300 transition-colors">Docs</a>
+                    <span>&bull;</span>
+                    <a href="/terms" target="_blank" class="hover:text-cyan-300 transition-colors">Terms</a>
+                    <span>&bull;</span>
+                    <a href="/privacy" target="_blank" class="hover:text-cyan-300 transition-colors">Privacy</a>
+                    <span>&bull;</span>
+                    <a href="/legal#refunds" target="_blank" class="hover:text-cyan-300 transition-colors">Refunds</a>
+                </div>
             </div>
         </div>
     </div>

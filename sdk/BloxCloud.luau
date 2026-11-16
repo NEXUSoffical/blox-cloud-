@@ -31,6 +31,7 @@ local _config = {
 local _liveConfig = {}
 local _configListeners = {}
 local _broadcastListeners = {}
+local _lastBroadcastId = nil
 local _matchListeners = {}
 local _activePlayerQueues = {}
 local _serverJobId = game.JobId ~= "" and game.JobId or ("DEV_INSTANCE_" .. tostring(math.random(10000, 99999)))
@@ -144,12 +145,25 @@ function BloxCloud.Telemetry:ReportExploit(player, anomalyType, details)
     makeRequest("/api/v1/telemetry/exploit-alert", "POST", payload)
 end
 
-function BloxCloud.Telemetry.ReportError(message, stack, scriptName)
+function BloxCloud.Telemetry.ReportError(firstArg, secondArg, thirdArg, fourthArg)
+    -- Supports both:
+    --   BloxCloud.Telemetry.ReportError(message, stack, scriptName)
+    --   BloxCloud.Telemetry:ReportError({ message = "...", stack = "...", scriptName = "..." })
+    local msg, stk, scr = firstArg, secondArg, thirdArg
+    if firstArg == BloxCloud.Telemetry then
+        msg, stk, scr = secondArg, thirdArg, fourthArg
+    end
+    if type(msg) == "table" then
+        stk = msg.stack or ""
+        scr = msg.scriptName or "UnknownScript"
+        msg = msg.message or "Unknown script error"
+    end
+
     local payload = {
         jobId = _serverJobId,
-        message = tostring(message),
-        stack = tostring(stack),
-        scriptName = tostring(scriptName),
+        message = tostring(msg or "Unknown script error"),
+        stack = tostring(stk or ""),
+        scriptName = tostring(scr or "UnknownScript"),
         errorType = "RUNTIME_EXCEPTION",
     }
     makeRequest("/api/v1/telemetry/error", "POST", payload)
@@ -218,6 +232,19 @@ function BloxCloud.LiveOps:FetchLatest()
             end
         end
     end
+
+    -- Fire OnBroadcast listeners when a new studio broadcast arrives
+    if data and data.activeBroadcast and data.activeBroadcast.id then
+        if data.activeBroadcast.id ~= _lastBroadcastId then
+            _lastBroadcastId = data.activeBroadcast.id
+            for _, listener in ipairs(_broadcastListeners) do
+                task.spawn(listener, data.activeBroadcast)
+            end
+        end
+    elseif data and data.activeBroadcast == nil then
+        _lastBroadcastId = nil
+    end
+
     return _liveConfig
 end
 
@@ -270,6 +297,45 @@ end
 
 function BloxCloud.Matchmaking:OnMatchFound(callback)
     table.insert(_matchListeners, callback)
+end
+
+-- Coordinates a real Roblox TeleportService:ReserveServer(arenaPlaceId) code across servers
+-- and teleports the matched player into the shared private arena server.
+function BloxCloud.Matchmaking:TeleportToMatch(player, match, arenaPlaceId)
+    assert(player and player:IsA("Player"), "Valid Player instance required")
+    assert(match and match.matchId, "Valid match object required")
+    arenaPlaceId = tonumber(arenaPlaceId) or game.PlaceId
+
+    local accessCode = match.robloxAccessCode
+    if not accessCode or accessCode == "" then
+        local ok, reservedCode = pcall(function()
+            return TeleportService:ReserveServer(arenaPlaceId)
+        end)
+        if not ok or not reservedCode then
+            warn("[BloxCloud Matchmaking] TeleportService:ReserveServer failed: " .. tostring(reservedCode))
+            return false, tostring(reservedCode)
+        end
+
+        local coordRes, err = makeRequest(
+            "/api/v1/matchmaking/match/" .. tostring(match.matchId) .. "/server-code",
+            "POST",
+            { robloxAccessCode = reservedCode }
+        )
+        if coordRes and coordRes.reservedServerCode then
+            accessCode = coordRes.reservedServerCode
+        else
+            accessCode = reservedCode
+        end
+    end
+
+    local tpOk, tpErr = pcall(function()
+        TeleportService:TeleportToPrivateServer(arenaPlaceId, accessCode, { player })
+    end)
+    if not tpOk then
+        warn("[BloxCloud Matchmaking] TeleportToPrivateServer failed: " .. tostring(tpErr))
+        return false, tostring(tpErr)
+    end
+    return true, accessCode
 end
 
 --------------------------------------------------------------------------------

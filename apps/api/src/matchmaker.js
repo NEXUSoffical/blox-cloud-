@@ -164,6 +164,8 @@ class Matchmaker {
             teamB: teamB.map(t => ({ userId: t.userId, username: t.username, rating: t.rating })),
             avgRatingA,
             avgRatingB,
+            hostUserId: teamA[0] ? String(teamA[0].userId) : null,
+            robloxAccessCode: null,
             reservedServerCode: 'BLOX_SRV_' + uuidv4().slice(0, 8).toUpperCase(),
             createdAt: Date.now(),
         };
@@ -178,6 +180,35 @@ class Matchmaker {
         }
 
         return match;
+    }
+
+    getMatch(matchId, studioId = null) {
+        const match = this.matches.get(matchId);
+        if (!match) return null;
+        if (studioId && match.studioId !== studioId) return null;
+        return match;
+    }
+
+    /**
+     * Atomic first-writer-wins coordination for Roblox TeleportService:ReserveServer() codes.
+     * Whichever Roblox server submits its ReserveServer access code first locks it in as the
+     * canonical code for the match, and all servers receive that same code back.
+     */
+    claimOrSetServerCode(matchId, robloxAccessCode, studioId = null) {
+        const match = this.getMatch(matchId, studioId);
+        if (!match) return { success: false, error: 'MATCH_NOT_FOUND' };
+        if (!robloxAccessCode || typeof robloxAccessCode !== 'string') {
+            return { success: false, error: 'INVALID_ACCESS_CODE' };
+        }
+        if (!match.robloxAccessCode) {
+            match.robloxAccessCode = robloxAccessCode.trim();
+            match.reservedServerCode = match.robloxAccessCode;
+        }
+        return {
+            success: true,
+            reservedServerCode: match.robloxAccessCode,
+            match,
+        };
     }
 
     getStats(studioId = null) {

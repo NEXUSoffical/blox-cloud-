@@ -177,6 +177,43 @@ class PersistentDB {
         this.save();
     }
 
+    // MARKETPLACE HELPERS (Multi-tenant scoped by studioId)
+    getListings(studioId = null, onlyActive = true) {
+        if (!Array.isArray(this.data.listings)) this.data.listings = [];
+        return this.data.listings
+            .filter(l => (!onlyActive || l.status === 'ACTIVE') && (!studioId || l.studioId === studioId))
+            .sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    findListingById(listingId) {
+        if (!Array.isArray(this.data.listings)) this.data.listings = [];
+        return this.data.listings.find(l => l.listingId === listingId) || null;
+    }
+
+    saveListing(listing) {
+        if (!Array.isArray(this.data.listings)) this.data.listings = [];
+        const idx = this.data.listings.findIndex(l => l.listingId === listing.listingId);
+        if (idx !== -1) {
+            this.data.listings[idx] = listing;
+        } else {
+            this.data.listings.push(listing);
+        }
+        this.save();
+    }
+
+    getLedger(studioId = null) {
+        if (!Array.isArray(this.data.ledger)) this.data.ledger = [];
+        if (!studioId) return this.data.ledger;
+        return this.data.ledger.filter(tx => tx.studioId === studioId);
+    }
+
+    addTransaction(tx) {
+        if (!Array.isArray(this.data.ledger)) this.data.ledger = [];
+        this.data.ledger.unshift(tx);
+        if (this.data.ledger.length > 500) this.data.ledger.pop();
+        this.save();
+    }
+
     // CLEAR / RESET (Scoped by studioId if provided)
     resetLiveOpsAndMarket(studioId = null) {
         if (studioId) {

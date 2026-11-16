@@ -58,9 +58,13 @@ app.use((req, res, next) => {
 const dashboardPath = path.resolve(__dirname, '../../dashboard/public');
 app.use(express.static(dashboardPath, { etag: false, maxAge: 0 }));
 
-// Documentation page route
+// Documentation & Legal page routes
 app.get('/docs', (req, res) => {
     res.sendFile('docs.html', { root: dashboardPath });
+});
+
+app.get(['/legal', '/terms', '/privacy'], (req, res) => {
+    res.sendFile('legal.html', { root: dashboardPath });
 });
 
 // Path to Luau SDK
@@ -211,7 +215,7 @@ app.post('/api/v1/billing/checkout-session', async (req, res) => {
     const result = await billing.createCheckoutSession(user, planId, origin);
     if (result.free) {
         auth.updateUserPlan(user.id, 'FREE');
-        broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId: 'FREE' });
+        broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId: 'FREE' }, user.id);
         return res.json({ success: true, user: auth._getSafeUser(db.findUserById(user.id)) });
     }
 
@@ -255,7 +259,7 @@ app.post('/api/v1/billing/lemonsqueezy/webhook', (req, res) => {
 
             if (isEnded) {
                 auth.updateUserPlan(userId, 'FREE');
-                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' });
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' }, userId);
                 console.log(`[BloxCloud LemonSqueezy] User ${userId} subscription ended (${eventName}/${subStatus})`);
             } else if (eventName === 'subscription_created' || eventName === 'order_created' || eventName === 'subscription_updated') {
                 auth.updateUserPlan(userId, planId);
@@ -263,7 +267,7 @@ app.post('/api/v1/billing/lemonsqueezy/webhook', (req, res) => {
                 if (user) {
                     billing.createSubscription(user, planId, 'LEMON_SQUEEZY');
                 }
-                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId });
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId }, userId);
                 console.log(`[BloxCloud LemonSqueezy] User ${userId} upgraded to ${planId}`);
             } else if (eventName === 'subscription_cancelled') {
                 // Customer keeps access until the paid period ends; downgrade happens on subscription_expired.
@@ -294,7 +298,7 @@ app.post('/api/v1/billing/subscribe', (req, res) => {
     }
 
     auth.updateUserPlan(user.id, planId);
-    broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId });
+    broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId: user.id, planId }, user.id);
     res.json({ success: true, subscription: subResult, user: auth._getSafeUser(db.findUserById(user.id)) });
 });
 
@@ -331,6 +335,15 @@ app.get('/api/v1/sdk/download', (req, res) => {
 
 app.post('/api/v1/telemetry/heartbeat', requireGameKey, (req, res) => {
     const studioId = req.user.id;
+    const plan = billing.getPlan(req.user.plan);
+    const overview = telemetry.getOverview(studioId);
+    const isExistingServer = overview.servers.some(s => s.jobId === req.body.jobId);
+    if (!isExistingServer && plan.limits && overview.totalServers >= plan.limits.maxServers) {
+        return res.status(402).json({
+            error: `Plan limit reached: your ${plan.name} plan allows up to ${plan.limits.maxServers} concurrent live servers. Upgrade your plan for additional capacity.`,
+            code: 'PLAN_LIMIT_REACHED',
+        });
+    }
     const serverInfo = telemetry.recordHeartbeat(req.body, studioId);
     broadcastToDashboard('SERVER_HEARTBEAT', serverInfo, studioId);
     res.json({ success: true, server: serverInfo });
@@ -405,9 +418,6 @@ app.post('/api/v1/reset', requireAdmin, (req, res) => {
     liveops.activeBroadcasts.clear();
     liveops.auditLog = [];
 
-    marketplace.listings.clear();
-    marketplace.ledger = [];
-
     telemetry.activeServers.clear();
     telemetry.errorLogs = [];
     telemetry.exploitAlerts = [];
@@ -424,6 +434,15 @@ app.post('/api/v1/matchmaking/queue', requireGameKey, (req, res) => {
     const { userId, username, queueType, rating, partyMembers, region } = req.body;
     if (!userId || !username) {
         return res.status(400).json({ error: 'Missing userId or username' });
+    }
+
+    const plan = billing.getPlan(req.user.plan);
+    const mmStats = matchmaker.getStats(studioId);
+    if (plan.limits && mmStats.totalMatchesCreated >= plan.limits.maxMatchesPerMonth) {
+        return res.status(402).json({
+            error: `Plan limit reached: your ${plan.name} plan includes ${plan.limits.maxMatchesPerMonth} matches/month.`,
+            code: 'PLAN_LIMIT_REACHED',
+        });
     }
 
     const ticket = matchmaker.enqueue({ userId, username, queueType, rating, partyMembers, region }, studioId);
@@ -445,6 +464,25 @@ app.get('/api/v1/matchmaking/ticket/:ticketId', requireGameKey, (req, res) => {
     res.json(ticket);
 });
 
+app.get('/api/v1/matchmaking/match/:matchId', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
+    const match = matchmaker.getMatch(req.params.matchId, studioId);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    res.json(match);
+});
+
+// Coordinate a real Roblox TeleportService:ReserveServer() access code across matched servers
+app.post('/api/v1/matchmaking/match/:matchId/server-code', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
+    const { robloxAccessCode } = req.body;
+    const result = matchmaker.claimOrSetServerCode(req.params.matchId, robloxAccessCode, studioId);
+    if (!result.success) {
+        return res.status(result.error === 'MATCH_NOT_FOUND' ? 404 : 400).json(result);
+    }
+    broadcastToDashboard('MATCH_SERVER_READY', result.match, studioId);
+    res.json(result);
+});
+
 app.get('/api/v1/matchmaking/stats', requireSession, (req, res) => {
     const studioId = req.user.id;
     res.json(matchmaker.getStats(studioId));
@@ -461,6 +499,16 @@ app.post('/api/v1/liveops/config', requireSession, (req, res) => {
     const { key, value, description } = req.body;
     if (!key || value === undefined) {
         return res.status(400).json({ error: 'Missing key or value' });
+    }
+
+    const plan = billing.getPlan(req.user.plan);
+    const currentFlags = db.getFlags(studioId);
+    const isExistingFlag = currentFlags.some(f => f.key === key);
+    if (!isExistingFlag && plan.limits && currentFlags.length >= plan.limits.liveOpsFlags) {
+        return res.status(402).json({
+            error: `Plan limit reached: your ${plan.name} plan allows up to ${plan.limits.liveOpsFlags} feature flags. Upgrade your plan to add more.`,
+            code: 'PLAN_LIMIT_REACHED',
+        });
     }
 
     const result = liveops.setFlag(key, value, description || '', req.user.username || 'Studio Admin', studioId);
@@ -498,6 +546,15 @@ app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
     const { sellerId, sellerName, itemId, itemData, price } = req.body;
     if (!sellerId || !itemId || !price) {
         return res.status(400).json({ error: 'Missing required listing fields: sellerId, itemId, price' });
+    }
+
+    const plan = billing.getPlan(req.user.plan);
+    const activeListings = marketplace.getListings(studioId);
+    if (plan.limits && activeListings.length >= plan.limits.maxActiveListings) {
+        return res.status(402).json({
+            error: `Plan limit reached: your ${plan.name} plan allows up to ${plan.limits.maxActiveListings} active marketplace listings.`,
+            code: 'PLAN_LIMIT_REACHED',
+        });
     }
 
     const listing = marketplace.listItem({ sellerId, sellerName, itemId, itemData, price }, studioId);
