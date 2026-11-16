@@ -1,14 +1,14 @@
 /**
- * BloxCloud Live Game Telemetry & Server Diagnostics Engine
- * Tracks live server health (FPS, Memory, Ping), script crash errors, and exploit alerts.
- * Features Roblox does NOT natively provide globally across all servers.
+ * BloxCloud Live Game Telemetry & Server Diagnostics Engine (Multi-Tenant)
+ * Tracks live server health (FPS, Memory, Ping), script crash errors, and exploit alerts
+ * strictly scoped to each studioId.
  */
 
 const crypto = require('crypto');
 
 class TelemetryManager {
     constructor() {
-        // jobId -> server info
+        // jobId -> server info (with studioId)
         this.activeServers = new Map();
         // Array of recent unhandled script errors
         this.errorLogs = [];
@@ -19,7 +19,7 @@ class TelemetryManager {
         setInterval(() => this._cleanupStaleServers(), 15000);
     }
 
-    recordHeartbeat(data) {
+    recordHeartbeat(data, studioId = null) {
         const {
             jobId,
             placeId = 'Universe_Place',
@@ -36,6 +36,7 @@ class TelemetryManager {
         const serverInfo = {
             jobId,
             placeId,
+            studioId,
             playerCount: Number(playerCount) || 0,
             serverFps: Number(serverFps) || 60,
             serverMemoryMb: Math.round(Number(serverMemoryMb) || 450),
@@ -51,11 +52,12 @@ class TelemetryManager {
         return serverInfo;
     }
 
-    recordError(data) {
+    recordError(data, studioId = null) {
         const { jobId, message, stack, scriptName, errorType = 'RUNTIME_ERROR' } = data;
         const errorEntry = {
             id: 'err_' + crypto.randomUUID().slice(0, 8),
             jobId: jobId || 'Unknown_Server',
+            studioId,
             message: message || 'Unknown script error',
             stack: stack || '',
             scriptName: scriptName || 'Script',
@@ -64,24 +66,25 @@ class TelemetryManager {
         };
 
         this.errorLogs.unshift(errorEntry);
-        if (this.errorLogs.length > 50) this.errorLogs.pop();
+        if (this.errorLogs.length > 200) this.errorLogs.pop();
         return errorEntry;
     }
 
-    recordExploitAlert(data) {
+    recordExploitAlert(data, studioId = null) {
         const { jobId, userId, username, anomalyType, details } = data;
         const alertEntry = {
             id: 'sec_' + crypto.randomUUID().slice(0, 8),
             jobId: jobId || 'Unknown_Server',
+            studioId,
             userId: String(userId),
             username: username || 'Unknown_User',
-            anomalyType: anomalyType || 'PHYSICS_ANOMALY', // 'SPEED_HACK', 'TELEPORT_NOCLIP', 'REMOTE_SPAM'
+            anomalyType: anomalyType || 'PHYSICS_ANOMALY',
             details: details || 'Suspicious velocity detected.',
             timestamp: Date.now(),
         };
 
         this.exploitAlerts.unshift(alertEntry);
-        if (this.exploitAlerts.length > 50) this.exploitAlerts.pop();
+        if (this.exploitAlerts.length > 200) this.exploitAlerts.pop();
         return alertEntry;
     }
 
@@ -95,9 +98,12 @@ class TelemetryManager {
         }
     }
 
-    getOverview() {
+    getOverview(studioId = null) {
         this._cleanupStaleServers();
-        const servers = Array.from(this.activeServers.values());
+        let servers = Array.from(this.activeServers.values());
+        if (studioId) {
+            servers = servers.filter(s => s.studioId === studioId);
+        }
 
         const totalServers = servers.length;
         const totalLivePlayers = servers.reduce((sum, s) => sum + s.playerCount, 0);
@@ -108,15 +114,32 @@ class TelemetryManager {
             ? Math.round(servers.reduce((sum, s) => sum + s.serverMemoryMb, 0) / totalServers)
             : 0;
 
+        const errors = studioId
+            ? this.errorLogs.filter(e => e.studioId === studioId)
+            : this.errorLogs;
+
+        const exploits = studioId
+            ? this.exploitAlerts.filter(a => a.studioId === studioId)
+            : this.exploitAlerts;
+
         return {
             totalServers,
             totalLivePlayers,
             avgFps: Number(avgFps),
             avgMemoryMb: avgMemory,
             servers,
-            recentErrors: this.errorLogs.slice(0, 10),
-            recentExploits: this.exploitAlerts.slice(0, 10),
+            recentErrors: errors.slice(0, 10),
+            recentExploits: exploits.slice(0, 10),
         };
+    }
+
+    clearStudio(studioId) {
+        if (!studioId) return;
+        for (const [jobId, s] of this.activeServers.entries()) {
+            if (s.studioId === studioId) this.activeServers.delete(jobId);
+        }
+        this.errorLogs = this.errorLogs.filter(e => e.studioId !== studioId);
+        this.exploitAlerts = this.exploitAlerts.filter(a => a.studioId !== studioId);
     }
 }
 

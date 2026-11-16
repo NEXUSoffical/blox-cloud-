@@ -1,5 +1,6 @@
 /**
- * BloxCloud LiveOps & Feature Flags Engine (Persistent)
+ * BloxCloud LiveOps & Feature Flags Engine (Persistent & Multi-Tenant)
+ * Scoped by studioId so each studio manages only their own flags and broadcasts.
  */
 
 const crypto = require('crypto');
@@ -8,33 +9,36 @@ const db = require('./db');
 
 class LiveOps {
     constructor() {
-        this.activeBroadcast = null;
+        // studioId -> active broadcast object
+        this.activeBroadcasts = new Map();
         this.auditLog = [];
     }
 
-    getAllConfig() {
+    getAllConfig(studioId = null) {
         const configObj = {};
-        const flagsList = db.getFlags();
+        const flagsList = db.getFlags(studioId);
 
         for (const flag of flagsList) {
             configObj[flag.key] = flag.value;
         }
 
+        const activeBroadcast = studioId ? (this.activeBroadcasts.get(studioId) || null) : null;
+
         return {
             config: configObj,
             flags: flagsList,
-            activeBroadcast: this.activeBroadcast,
+            activeBroadcast,
         };
     }
 
-    getConfigValue(key, fallback = null) {
-        const flags = db.getFlags();
+    getConfigValue(key, studioId = null, fallback = null) {
+        const flags = db.getFlags(studioId);
         const flag = flags.find(f => f.key === key);
         return flag ? flag.value : fallback;
     }
 
-    setFlag(key, value, description = '', changedBy = 'Developer') {
-        const flags = db.getFlags();
+    setFlag(key, value, description = '', changedBy = 'Developer', studioId = null) {
+        const flags = db.getFlags(studioId);
         const existing = flags.find(f => f.key === key);
         const oldValue = existing ? existing.value : undefined;
         const type = typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : 'string';
@@ -46,9 +50,10 @@ class LiveOps {
             description: description || (existing ? existing.description : ''),
             updatedAt: Date.now(),
             changedBy,
+            studioId,
         };
 
-        db.saveFlag(flagData);
+        db.saveFlag(flagData, studioId);
 
         const logEntry = {
             id: 'log_' + uuidv4().slice(0, 8),
@@ -56,6 +61,7 @@ class LiveOps {
             oldValue,
             newValue: value,
             changedBy,
+            studioId,
             timestamp: Date.now(),
         };
 
@@ -65,12 +71,12 @@ class LiveOps {
         return { flag: flagData, log: logEntry };
     }
 
-    deleteFlag(key, changedBy = 'Developer') {
-        const flags = db.getFlags();
+    deleteFlag(key, changedBy = 'Developer', studioId = null) {
+        const flags = db.getFlags(studioId);
         const existing = flags.find(f => f.key === key);
         if (!existing) return false;
 
-        db.deleteFlag(key);
+        db.deleteFlag(key, studioId);
 
         const logEntry = {
             id: 'log_' + uuidv4().slice(0, 8),
@@ -79,6 +85,7 @@ class LiveOps {
             newValue: null,
             action: 'DELETED',
             changedBy,
+            studioId,
             timestamp: Date.now(),
         };
 
@@ -86,23 +93,32 @@ class LiveOps {
         return true;
     }
 
-    broadcastBanner(message, durationSeconds = 60, severity = 'INFO') {
-        this.activeBroadcast = {
+    broadcastBanner(message, durationSeconds = 60, severity = 'INFO', studioId = null) {
+        const broadcast = {
             id: 'bc_' + uuidv4().slice(0, 8),
             message,
             severity,
             createdAt: Date.now(),
             expiresAt: Date.now() + durationSeconds * 1000,
+            studioId,
         };
-        return this.activeBroadcast;
+        if (studioId) {
+            this.activeBroadcasts.set(studioId, broadcast);
+        }
+        return broadcast;
     }
 
-    clearBroadcast() {
-        this.activeBroadcast = null;
+    clearBroadcast(studioId = null) {
+        if (studioId) {
+            this.activeBroadcasts.delete(studioId);
+        } else {
+            this.activeBroadcasts.clear();
+        }
     }
 
-    getAuditLog() {
-        return this.auditLog;
+    getAuditLog(studioId = null) {
+        if (!studioId) return this.auditLog;
+        return this.auditLog.filter(l => l.studioId === studioId);
     }
 }
 

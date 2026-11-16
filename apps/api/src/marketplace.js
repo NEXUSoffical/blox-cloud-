@@ -1,6 +1,7 @@
 /**
- * BloxCloud Global Auction House & Marketplace Engine
+ * BloxCloud Global Auction House & Marketplace Engine (Multi-Tenant)
  * Cross-server atomic item transactions preventing item duplication and race conditions.
+ * Strictly isolated per studioId so different games never share economies or listings.
  */
 
 const crypto = require('crypto');
@@ -8,7 +9,7 @@ const uuidv4 = () => crypto.randomUUID();
 
 class Marketplace {
     constructor() {
-        // listingId -> listing
+        // listingId -> listing (with studioId)
         this.listings = new Map();
         // Transaction ledger for audits
         this.ledger = [];
@@ -16,12 +17,13 @@ class Marketplace {
         this.locks = new Set();
     }
 
-    listItem(data) {
+    listItem(data, studioId = null) {
         const { sellerId, sellerName, itemId, itemData = {}, price } = data;
 
         const listingId = 'list_' + uuidv4().slice(0, 8);
         const listing = {
             listingId,
+            studioId,
             sellerId: String(sellerId),
             sellerName: String(sellerName),
             itemId,
@@ -36,9 +38,9 @@ class Marketplace {
     }
 
     /**
-     * Atomically purchase an item with anti-dupe lock
+     * Atomically purchase an item with anti-dupe lock, scoped to studioId
      */
-    buyItem(buyerId, buyerName, listingId) {
+    buyItem(buyerId, buyerName, listingId, studioId = null) {
         // 1. Acquire atomic lock on listingId
         if (this.locks.has(listingId)) {
             return { success: false, error: 'ITEM_TRANSACTION_IN_PROGRESS' };
@@ -48,6 +50,10 @@ class Marketplace {
         try {
             const listing = this.listings.get(listingId);
             if (!listing) {
+                return { success: false, error: 'LISTING_NOT_FOUND' };
+            }
+
+            if (studioId && listing.studioId && listing.studioId !== studioId) {
                 return { success: false, error: 'LISTING_NOT_FOUND' };
             }
 
@@ -70,6 +76,7 @@ class Marketplace {
             // 3. Record transaction in immutable ledger
             const transaction = {
                 txId: 'tx_' + uuidv4().slice(0, 10),
+                studioId: listing.studioId || studioId,
                 listingId,
                 itemId: listing.itemId,
                 price: listing.price,
@@ -81,7 +88,7 @@ class Marketplace {
             };
 
             this.ledger.unshift(transaction);
-            if (this.ledger.length > 100) this.ledger.pop();
+            if (this.ledger.length > 200) this.ledger.pop();
 
             return {
                 success: true,
@@ -97,9 +104,10 @@ class Marketplace {
         }
     }
 
-    cancelListing(sellerId, listingId) {
+    cancelListing(sellerId, listingId, studioId = null) {
         const listing = this.listings.get(listingId);
         if (!listing) return { success: false, error: 'LISTING_NOT_FOUND' };
+        if (studioId && listing.studioId && listing.studioId !== studioId) return { success: false, error: 'UNAUTHORIZED' };
         if (listing.sellerId !== String(sellerId)) return { success: false, error: 'UNAUTHORIZED' };
         if (listing.status !== 'ACTIVE') return { success: false, error: 'CANNOT_CANCEL_INACTIVE_ITEM' };
 
@@ -107,15 +115,23 @@ class Marketplace {
         return { success: true };
     }
 
-    getListings(filter = {}) {
-        const active = Array.from(this.listings.values())
-            .filter(l => l.status === 'ACTIVE')
+    getListings(studioId = null) {
+        return Array.from(this.listings.values())
+            .filter(l => l.status === 'ACTIVE' && (!studioId || l.studioId === studioId))
             .sort((a, b) => b.createdAt - a.createdAt);
-        return active;
     }
 
-    getLedger() {
-        return this.ledger;
+    getLedger(studioId = null) {
+        if (!studioId) return this.ledger;
+        return this.ledger.filter(tx => tx.studioId === studioId);
+    }
+
+    clearStudio(studioId) {
+        if (!studioId) return;
+        for (const [id, l] of this.listings.entries()) {
+            if (l.studioId === studioId) this.listings.delete(id);
+        }
+        this.ledger = this.ledger.filter(tx => tx.studioId !== studioId);
     }
 }
 

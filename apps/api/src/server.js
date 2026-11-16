@@ -112,19 +112,22 @@ function requireAdmin(req, res, next) {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-function broadcastToDashboard(eventType, payload) {
+function broadcastToDashboard(eventType, payload, studioId = null) {
     const message = JSON.stringify({ type: eventType, data: payload, timestamp: Date.now() });
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
+            // Only send event to the studio dashboard that owns it
+            if (!studioId || client.userId === studioId) {
+                client.send(message);
+            }
         }
     });
 }
 
 const originalCreateMatch = matchmaker.createMatch.bind(matchmaker);
-matchmaker.createMatch = function(queueType, tickets) {
-    const match = originalCreateMatch(queueType, tickets);
-    broadcastToDashboard('MATCH_CREATED', match);
+matchmaker.createMatch = function(queueType, tickets, studioId = 'default') {
+    const match = originalCreateMatch(queueType, tickets, studioId);
+    broadcastToDashboard('MATCH_CREATED', match, studioId);
     return match;
 };
 
@@ -322,25 +325,29 @@ app.get('/api/v1/sdk/download', (req, res) => {
 // -----------------------------------------------------------------------------
 
 app.post('/api/v1/telemetry/heartbeat', requireGameKey, (req, res) => {
-    const serverInfo = telemetry.recordHeartbeat(req.body);
-    broadcastToDashboard('SERVER_HEARTBEAT', serverInfo);
+    const studioId = req.user.id;
+    const serverInfo = telemetry.recordHeartbeat(req.body, studioId);
+    broadcastToDashboard('SERVER_HEARTBEAT', serverInfo, studioId);
     res.json({ success: true, server: serverInfo });
 });
 
 app.post('/api/v1/telemetry/error', requireGameKey, (req, res) => {
-    const errorEntry = telemetry.recordError(req.body);
-    broadcastToDashboard('SERVER_ERROR_RECORDED', errorEntry);
+    const studioId = req.user.id;
+    const errorEntry = telemetry.recordError(req.body, studioId);
+    broadcastToDashboard('SERVER_ERROR_RECORDED', errorEntry, studioId);
     res.json({ success: true, error: errorEntry });
 });
 
 app.post('/api/v1/telemetry/exploit-alert', requireGameKey, (req, res) => {
-    const alertEntry = telemetry.recordExploitAlert(req.body);
-    broadcastToDashboard('EXPLOIT_ALERT_RECORDED', alertEntry);
+    const studioId = req.user.id;
+    const alertEntry = telemetry.recordExploitAlert(req.body, studioId);
+    broadcastToDashboard('EXPLOIT_ALERT_RECORDED', alertEntry, studioId);
     res.json({ success: true, alert: alertEntry });
 });
 
 app.get('/api/v1/telemetry/overview', requireSession, (req, res) => {
-    res.json(telemetry.getOverview());
+    const studioId = req.user.id;
+    res.json(telemetry.getOverview(studioId));
 });
 
 // -----------------------------------------------------------------------------
@@ -352,11 +359,12 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 app.get('/api/v1/metrics', requireSession, (req, res) => {
-    const mmStats = matchmaker.getStats();
-    const liveConfig = liveops.getAllConfig();
-    const activeListings = marketplace.getListings();
-    const txLedger = marketplace.getLedger();
-    const telemetryOverview = telemetry.getOverview();
+    const studioId = req.user.id;
+    const mmStats = matchmaker.getStats(studioId);
+    const liveConfig = liveops.getAllConfig(studioId);
+    const activeListings = marketplace.getListings(studioId);
+    const txLedger = marketplace.getLedger(studioId);
+    const telemetryOverview = telemetry.getOverview(studioId);
 
     res.json({
         totalMatchesCreated: mmStats.totalMatchesCreated,
@@ -374,14 +382,22 @@ app.get('/api/v1/metrics', requireSession, (req, res) => {
 });
 
 app.post('/api/v1/reset', requireAdmin, (req, res) => {
+    const studioId = req.body && req.body.studioId ? req.body.studioId : null;
+
+    if (studioId) {
+        matchmaker.clearStudio(studioId);
+        telemetry.clearStudio(studioId);
+        marketplace.clearStudio(studioId);
+        db.resetLiveOpsAndMarket(studioId);
+        broadcastToDashboard('DATA_RESET', {}, studioId);
+        return res.json({ success: true, message: `Studio data for ${studioId} has been reset.` });
+    }
+
     matchmaker.tickets.clear();
     matchmaker.matches.clear();
-    for (const q of Object.keys(matchmaker.queues)) matchmaker.queues[q] = [];
-    matchmaker.stats.totalMatchesCreated = 0;
-    matchmaker.stats.activeQueuedPlayers = 0;
+    matchmaker.queues = {};
 
-    liveops.flags.clear();
-    liveops.activeBroadcast = null;
+    liveops.activeBroadcasts.clear();
     liveops.auditLog = [];
 
     marketplace.listings.clear();
@@ -391,108 +407,123 @@ app.post('/api/v1/reset', requireAdmin, (req, res) => {
     telemetry.errorLogs = [];
     telemetry.exploitAlerts = [];
 
+    db.resetLiveOpsAndMarket();
+
     broadcastToDashboard('DATA_RESET', {});
     res.json({ success: true, message: 'All live data has been reset to zero.' });
 });
 
 // MATCHMAKING ENDPOINTS
 app.post('/api/v1/matchmaking/queue', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
     const { userId, username, queueType, rating, partyMembers, region } = req.body;
     if (!userId || !username) {
         return res.status(400).json({ error: 'Missing userId or username' });
     }
 
-    const ticket = matchmaker.enqueue({ userId, username, queueType, rating, partyMembers, region });
-    broadcastToDashboard('PLAYER_QUEUED', { userId, username, queueType, rating });
+    const ticket = matchmaker.enqueue({ userId, username, queueType, rating, partyMembers, region }, studioId);
+    broadcastToDashboard('PLAYER_QUEUED', { userId, username, queueType, rating }, studioId);
     res.json(ticket);
 });
 
 app.post('/api/v1/matchmaking/leave', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
     const { userId, ticketId } = req.body;
-    const success = matchmaker.dequeue(userId, ticketId);
+    const success = matchmaker.dequeue(userId, ticketId, studioId);
     res.json({ success });
 });
 
 app.get('/api/v1/matchmaking/ticket/:ticketId', requireGameKey, (req, res) => {
-    const ticket = matchmaker.getTicket(req.params.ticketId);
+    const studioId = req.user.id;
+    const ticket = matchmaker.getTicket(req.params.ticketId, studioId);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
     res.json(ticket);
 });
 
 app.get('/api/v1/matchmaking/stats', requireSession, (req, res) => {
-    res.json(matchmaker.getStats());
+    const studioId = req.user.id;
+    res.json(matchmaker.getStats(studioId));
 });
 
 // LIVEOPS & FEATURE FLAGS
 app.get('/api/v1/liveops/config', requireGameKey, (req, res) => {
-    res.json(liveops.getAllConfig());
+    const studioId = req.user.id;
+    res.json(liveops.getAllConfig(studioId));
 });
 
 app.post('/api/v1/liveops/config', requireSession, (req, res) => {
+    const studioId = req.user.id;
     const { key, value, description } = req.body;
     if (!key || value === undefined) {
         return res.status(400).json({ error: 'Missing key or value' });
     }
 
-    const result = liveops.setFlag(key, value, description || '', req.user.username || 'Studio Admin');
-    broadcastToDashboard('CONFIG_CHANGED', result);
-    res.json({ success: true, result, currentConfig: liveops.getAllConfig() });
+    const result = liveops.setFlag(key, value, description || '', req.user.username || 'Studio Admin', studioId);
+    broadcastToDashboard('CONFIG_CHANGED', result, studioId);
+    res.json({ success: true, result, currentConfig: liveops.getAllConfig(studioId) });
 });
 
 app.delete('/api/v1/liveops/config/:key', requireSession, (req, res) => {
-    const deleted = liveops.deleteFlag(req.params.key, req.user.username || 'Studio Admin');
-    broadcastToDashboard('FLAG_DELETED', { key: req.params.key });
+    const studioId = req.user.id;
+    const deleted = liveops.deleteFlag(req.params.key, req.user.username || 'Studio Admin', studioId);
+    broadcastToDashboard('FLAG_DELETED', { key: req.params.key }, studioId);
     res.json({ success: deleted });
 });
 
 app.post('/api/v1/liveops/broadcast', requireSession, (req, res) => {
+    const studioId = req.user.id;
     const { message, durationSeconds, severity } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
 
-    const broadcast = liveops.broadcastBanner(message, durationSeconds || 60, severity || 'INFO');
-    broadcastToDashboard('BROADCAST_SENT', broadcast);
+    const broadcast = liveops.broadcastBanner(message, durationSeconds || 60, severity || 'INFO', studioId);
+    broadcastToDashboard('BROADCAST_SENT', broadcast, studioId);
     res.json({ success: true, broadcast });
 });
 
 app.post('/api/v1/liveops/broadcast/clear', requireSession, (req, res) => {
-    liveops.clearBroadcast();
-    broadcastToDashboard('BROADCAST_CLEARED', {});
+    const studioId = req.user.id;
+    liveops.clearBroadcast(studioId);
+    broadcastToDashboard('BROADCAST_CLEARED', {}, studioId);
     res.json({ success: true });
 });
 
 // MARKETPLACE & AUCTION HOUSE
 app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
     const { sellerId, sellerName, itemId, itemData, price } = req.body;
     if (!sellerId || !itemId || !price) {
         return res.status(400).json({ error: 'Missing required listing fields: sellerId, itemId, price' });
     }
 
-    const listing = marketplace.listItem({ sellerId, sellerName, itemId, itemData, price });
-    broadcastToDashboard('ITEM_LISTED', listing);
+    const listing = marketplace.listItem({ sellerId, sellerName, itemId, itemData, price }, studioId);
+    broadcastToDashboard('ITEM_LISTED', listing, studioId);
     res.json(listing);
 });
 
 app.post('/api/v1/marketplace/buy', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
     const { buyerId, buyerName, listingId } = req.body;
     if (!buyerId || !listingId) {
         return res.status(400).json({ error: 'buyerId and listingId required' });
     }
 
-    const result = marketplace.buyItem(buyerId, buyerName, listingId);
+    const result = marketplace.buyItem(buyerId, buyerName, listingId, studioId);
     if (!result.success) {
         return res.status(400).json(result);
     }
 
-    broadcastToDashboard('ITEM_BOUGHT', result);
+    broadcastToDashboard('ITEM_BOUGHT', result, studioId);
     res.json(result);
 });
 
 app.get('/api/v1/marketplace/listings', requireGameKey, (req, res) => {
-    res.json({ listings: marketplace.getListings() });
+    const studioId = req.user.id;
+    res.json({ listings: marketplace.getListings(studioId) });
 });
 
 app.get('/api/v1/marketplace/ledger', requireSession, (req, res) => {
-    res.json({ ledger: marketplace.getLedger() });
+    const studioId = req.user.id;
+    res.json({ ledger: marketplace.getLedger(studioId) });
 });
 
 // -----------------------------------------------------------------------------
@@ -504,17 +535,21 @@ wss.on('connection', (ws, req) => {
     try {
         token = new URL(req.url, 'http://localhost').searchParams.get('token');
     } catch (e) { /* ignore */ }
-    if (!auth.getUserByToken(token)) {
+    const user = auth.getUserByToken(token);
+    if (!user) {
         ws.close(4401, 'Unauthorized');
         return;
     }
+    // Tag the WebSocket with the studio/user ID
+    ws.userId = user.id;
+
     ws.send(JSON.stringify({
         type: 'INITIAL_SNAPSHOT',
         data: {
-            metrics: matchmaker.getStats(),
-            liveops: liveops.getAllConfig(),
-            listings: marketplace.getListings(),
-            ledger: marketplace.getLedger().slice(0, 10),
+            metrics: matchmaker.getStats(user.id),
+            liveops: liveops.getAllConfig(user.id),
+            listings: marketplace.getListings(user.id),
+            ledger: marketplace.getLedger(user.id).slice(0, 10),
         },
         timestamp: Date.now(),
     }));

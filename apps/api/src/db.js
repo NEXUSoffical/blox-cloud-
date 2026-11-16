@@ -155,13 +155,15 @@ class PersistentDB {
         return this.data.invoices.filter(i => i.userId === userId);
     }
 
-    // FLAG HELPERS
-    getFlags() {
-        return this.data.flags;
+    // FLAG HELPERS (Multi-tenant scoped by studioId)
+    getFlags(studioId = null) {
+        if (!studioId) return this.data.flags;
+        return this.data.flags.filter(f => f.studioId === studioId);
     }
 
-    saveFlag(flag) {
-        const idx = this.data.flags.findIndex(f => f.key === flag.key);
+    saveFlag(flag, studioId = null) {
+        if (studioId) flag.studioId = studioId;
+        const idx = this.data.flags.findIndex(f => f.key === flag.key && (!studioId || f.studioId === studioId));
         if (idx !== -1) {
             this.data.flags[idx] = flag;
         } else {
@@ -170,16 +172,22 @@ class PersistentDB {
         this.save();
     }
 
-    deleteFlag(key) {
-        this.data.flags = this.data.flags.filter(f => f.key !== key);
+    deleteFlag(key, studioId = null) {
+        this.data.flags = this.data.flags.filter(f => !(f.key === key && (!studioId || f.studioId === studioId)));
         this.save();
     }
 
-    // CLEAR / RESET
-    resetLiveOpsAndMarket() {
-        this.data.flags = [];
-        this.data.listings = [];
-        this.data.ledger = [];
+    // CLEAR / RESET (Scoped by studioId if provided)
+    resetLiveOpsAndMarket(studioId = null) {
+        if (studioId) {
+            this.data.flags = this.data.flags.filter(f => f.studioId !== studioId);
+            this.data.listings = this.data.listings.filter(l => l.studioId !== studioId);
+            this.data.ledger = this.data.ledger.filter(tx => tx.studioId !== studioId);
+        } else {
+            this.data.flags = [];
+            this.data.listings = [];
+            this.data.ledger = [];
+        }
         this.save();
     }
 }
