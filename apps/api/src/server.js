@@ -222,7 +222,76 @@ app.post('/api/v1/billing/checkout-session', async (req, res) => {
     res.json(result);
 });
 
-// Lemon Squeezy Webhook Listener
+// Polar.sh Webhook Listener (Standard Webhooks specification)
+app.post('/api/v1/billing/polar/webhook', (req, res) => {
+    try {
+        const secret = process.env.POLAR_WEBHOOK_SECRET || process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+        if (!secret) {
+            console.error('[BloxCloud Polar] Webhook rejected: POLAR_WEBHOOK_SECRET is not set.');
+            return res.status(503).json({ error: 'Webhook not configured' });
+        }
+
+        const rawBody = req.rawBody;
+        if (!rawBody || !billing.verifyPolarWebhookSignature(rawBody, req.headers, secret)) {
+            return res.status(401).json({ error: 'Invalid webhook signature' });
+        }
+
+        const payload = req.body || {};
+        const eventType = String(payload.type || '');
+        const data = payload.data || {};
+        const metadata = data.metadata || {};
+        const customer = data.customer || {};
+        const product = data.product || {};
+
+        let userId = metadata.user_id || metadata.reference_id || customer.external_id || null;
+        if (!userId && customer.email) {
+            const byEmail = db.findUserByEmail(String(customer.email).trim().toLowerCase());
+            if (byEmail) userId = byEmail.id;
+        }
+
+        if (userId) {
+            const productName = product.name || data.product_name || '';
+            const planId = billing.planIdFromProductName(productName);
+            const subStatus = String(data.status || '').toLowerCase();
+
+            const isEnded = eventType === 'subscription.revoked' ||
+                (eventType === 'subscription.updated' && (subStatus === 'revoked' || subStatus === 'unpaid' || subStatus === 'incomplete_expired'));
+
+            if (isEnded) {
+                auth.updateUserPlan(userId, 'FREE');
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' }, userId);
+                console.log(`[BloxCloud Polar] User ${userId} subscription ended (${eventType}/${subStatus})`);
+            } else if (eventType === 'subscription.canceled') {
+                // Customer keeps access until current_period_end; downgrade happens on subscription.revoked
+                console.log(`[BloxCloud Polar] User ${userId} cancelled; access continues until period end`);
+            } else if (
+                eventType === 'subscription.created' ||
+                eventType === 'subscription.active' ||
+                eventType === 'order.paid' ||
+                (eventType === 'subscription.updated' && (subStatus === 'active' || subStatus === 'trialing'))
+            ) {
+                if (!planId) {
+                    console.error(`[BloxCloud Polar] Unknown product "${productName}" in ${eventType}`);
+                    return res.json({ received: true, ignored: true });
+                }
+                auth.updateUserPlan(userId, planId);
+                const user = db.findUserById(userId);
+                if (user) {
+                    billing.createSubscription(user, planId, 'POLAR');
+                }
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId }, userId);
+                console.log(`[BloxCloud Polar] User ${userId} upgraded to ${planId}`);
+            }
+        }
+
+        res.json({ received: true });
+    } catch (e) {
+        console.error('[BloxCloud Polar Webhook Error]:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Lemon Squeezy Webhook Listener (legacy compatibility)
 app.post('/api/v1/billing/lemonsqueezy/webhook', (req, res) => {
     try {
         const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;

@@ -585,11 +585,11 @@
 
             </div>
 
-            <!-- Lemon Squeezy Security & Payment Trust Footer -->
+            <!-- Polar.sh Security & Payment Trust Footer -->
             <div class="pt-3 border-t border-blue-500/30 flex flex-wrap items-center justify-between text-xs text-blue-200">
                 <div class="flex items-center space-x-2">
-                    <span class="text-xl">🍋</span>
-                    <span class="text-[11px] text-blue-300 font-medium">Powered by <strong>Lemon Squeezy</strong> • Merchant of Record • Global Sales Tax & EU VAT Handled Automatically</span>
+                    <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+                    <span class="text-[11px] text-blue-300 font-medium">Powered by <strong>Polar.sh</strong> • Merchant of Record • Global Sales Tax &amp; UK/EU VAT Handled Automatically</span>
                 </div>
                 <div class="flex items-center space-x-3 text-sm text-blue-300">
                     <i class="fa-brands fa-cc-visa text-blue-400"></i>
@@ -597,13 +597,12 @@
                     <i class="fa-brands fa-cc-amex text-cyan-400"></i>
                     <i class="fa-brands fa-apple-pay text-white"></i>
                     <i class="fa-brands fa-google-pay text-white"></i>
-                    <i class="fa-brands fa-paypal text-cyan-300"></i>
                 </div>
             </div>
 
             <!-- Invoices Ledger -->
             <div class="pt-3 border-t border-blue-500/30 space-y-2">
-                <div class="text-xs font-bold text-blue-200 uppercase tracking-wider">Billing History & Receipts</div>
+                <div class="text-xs font-bold text-blue-200 uppercase tracking-wider">Billing History &amp; Receipts</div>
                 <div id="invoicesList" class="space-y-1 text-xs text-blue-200">
                     <div class="text-blue-300/60 text-center py-2">No invoices billed yet.</div>
                 </div>
@@ -611,17 +610,17 @@
         </div>
     </div>
 
-    <!-- Modal: Lemon Squeezy Configuration & Test Mode Helper -->
+    <!-- Modal: Polar.sh Configuration Helper -->
     <div id="lemonConfigModal" class="hidden fixed inset-0 bg-[#020b1f]/85 backdrop-blur-lg z-50 flex items-center justify-center p-4">
         <div class="glass-panel bg-[#0b1739]/95 border border-blue-400/50 w-full max-w-lg rounded-2xl p-6 space-y-5 shadow-2xl shadow-blue-600/30">
             <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-500 to-amber-600 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/30">
-                        <span>🍋</span>
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center text-xl shadow-md shadow-blue-500/30">
+                        <i class="fa-solid fa-credit-card"></i>
                     </div>
                     <div>
-                        <h3 class="font-extrabold text-white text-base">Lemon Squeezy Payments</h3>
-                        <p class="text-xs text-blue-200">Collect global revenue with automated VAT & sales tax compliance.</p>
+                        <h3 class="font-extrabold text-white text-base">Polar.sh Checkout Setup</h3>
+                        <p class="text-xs text-blue-200">Merchant of Record for developer tools with automated UK/EU VAT compliance.</p>
                     </div>
                 </div>
                 <button onclick="closeLemonConfigModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -629,24 +628,25 @@
 
             <div class="space-y-3.5 text-xs text-blue-200">
                 <p>
-                    To enable <strong>live customer payments</strong>, you can connect your free Lemon Squeezy store:
+                    To enable <strong>live customer payments</strong>, connect your Polar.sh checkout links:
                 </p>
                 <div class="p-3.5 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2 font-mono text-[11px]">
-                    <div class="text-cyan-300 font-bold font-sans text-xs">Steps in Render (dashboard.render.com):</div>
-                    <div class="text-slate-300">1. Create a free account at <span class="text-white font-bold">lemonsqueezy.com</span></div>
-                    <div class="text-slate-300">2. In your <span class="text-white">blox-cloud-</span> Web Service → <span class="text-white">Environment</span>, add your Lemon Squeezy checkout link or API key:</div>
+                    <div class="text-cyan-300 font-bold font-sans text-xs">Steps:</div>
+                    <div class="text-slate-300">1. Create your products &amp; checkout links at <span class="text-white font-bold">polar.sh</span></div>
+                    <div class="text-slate-300">2. Add your checkout links in Render → <span class="text-white">Environment</span>:</div>
                     <div class="p-2 rounded bg-black/40 border border-blue-500/20 text-cyan-300 space-y-1">
-                        <div>Key: <strong>LEMONSQUEEZY_PRO_URL</strong> (e.g. your Pro checkout link)</div>
-                        <div>Key: <strong>LEMONSQUEEZY_STUDIO_URL</strong></div>
-                        <div>Key: <strong>LEMONSQUEEZY_ENTERPRISE_URL</strong></div>
+                        <div>Key: <strong>POLAR_PRO_URL</strong></div>
+                        <div>Key: <strong>POLAR_STUDIO_URL</strong></div>
+                        <div>Key: <strong>POLAR_ENTERPRISE_URL</strong></div>
+                        <div>Key: <strong>POLAR_WEBHOOK_SECRET</strong></div>
                     </div>
                     <div class="text-slate-300">3. Click <span class="text-white font-bold">Save Changes</span>.</div>
                 </div>
 
                 <div class="pt-2 flex items-center justify-between gap-3">
-                    <a href="https://app.lemonsqueezy.com/register" target="_blank" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold flex items-center space-x-1.5 transition-all shadow-md shadow-amber-500/30">
+                    <a href="https://polar.sh" target="_blank" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-extrabold flex items-center space-x-1.5 transition-all shadow-md shadow-blue-500/30">
                         <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                        <span>Sign Up for Lemon Squeezy</span>
+                        <span>Open Polar.sh Dashboard</span>
                     </a>
                 </div>
             </div>
@@ -1080,7 +1080,7 @@ end)`;
 
         async function activateSandboxPlan() {
             closeLemonConfigModal();
-            alert('Paid plans can only be activated through Lemon Squeezy checkout.');
+            alert('Paid plans can only be activated through Polar.sh checkout.');
         }
 
         async function selectPlan(planId) {
@@ -1105,10 +1105,10 @@ end)`;
                 return;
             }
 
-            // Lemon Squeezy Checkout for PRO, STUDIO, ENTERPRISE
+            // Polar.sh Checkout for PRO, STUDIO, ENTERPRISE
             const btn = document.getElementById(`btnPlan${planId}`);
             const originalText = btn ? btn.innerHTML : '';
-            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Connecting Lemon Squeezy...`;
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Connecting Polar.sh...`;
 
             try {
                 const res = await fetch(`${API}/billing/checkout-session`, {

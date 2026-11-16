@@ -88,9 +88,9 @@ const PLANS = {
 };
 
 const DEFAULT_CHECKOUT_URLS = {
-    PRO: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/176e77bf-c528-478f-86e6-5ec14b591cd8',
-    STUDIO: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/f0ac28e3-bdd5-463c-b164-bd6436e03fce',
-    ENTERPRISE: 'https://bloxcloud.lemonsqueezy.com/checkout/buy/049a843a-be3e-4660-a965-fcd9569cff32',
+    PRO: process.env.POLAR_PRO_URL || '',
+    STUDIO: process.env.POLAR_STUDIO_URL || '',
+    ENTERPRISE: process.env.POLAR_ENTERPRISE_URL || '',
 };
 
 class BillingManager {
@@ -102,7 +102,7 @@ class BillingManager {
         return PLANS[planId] || PLANS.FREE;
     }
 
-    createSubscription(user, planId, paymentMethod = 'LEMON_SQUEEZY_CARD') {
+    createSubscription(user, planId, paymentMethod = 'POLAR_CHECKOUT') {
         const plan = PLANS[planId];
         if (!plan) return { success: false, error: 'Invalid plan selected.' };
 
@@ -113,7 +113,7 @@ class BillingManager {
             planId: plan.id,
             planName: plan.name,
             amount: plan.price,
-            currency: 'USD',
+            currency: plan.currency || 'GBP',
             status: 'PAID',
             paymentMethod: plan.price === 0 ? 'FREE_TIER' : paymentMethod,
             timestamp: Date.now(),
@@ -139,80 +139,115 @@ class BillingManager {
             return { success: true, free: true, subscription: sub };
         }
 
-        // Check if direct Lemon Squeezy checkout URL is configured for this plan
-        const customUrl = process.env[`LEMONSQUEEZY_${planId}_URL`] || DEFAULT_CHECKOUT_URLS[planId];
+        // 1. Direct Polar.sh Checkout Link (e.g. https://buy.polar.sh/polar_cl_xxx)
+        const customUrl = process.env[`POLAR_${planId}_URL`] || DEFAULT_CHECKOUT_URLS[planId];
         if (customUrl) {
             const sep = customUrl.includes('?') ? '&' : '?';
-            const checkoutUrl = `${customUrl}${sep}checkout[email]=${encodeURIComponent(user.email)}&checkout[custom][user_id]=${encodeURIComponent(user.id)}&checkout[custom][plan_id]=${encodeURIComponent(planId)}`;
+            const metadata = JSON.stringify({ user_id: user.id, plan_id: planId });
+            const checkoutUrl = `${customUrl}${sep}customer_email=${encodeURIComponent(user.email)}&customer_name=${encodeURIComponent(user.username || '')}&reference_id=${encodeURIComponent(user.id)}&metadata=${encodeURIComponent(metadata)}`;
             return { success: true, url: checkoutUrl };
         }
 
-        // Check for Lemon Squeezy API configuration
-        const apiKey = process.env.LEMONSQUEEZY_API_KEY;
-        const storeId = process.env.LEMONSQUEEZY_STORE_ID;
-        const variantId = process.env[`LEMONSQUEEZY_VARIANT_${planId}`];
-
-        if (apiKey && storeId && variantId) {
+        // 2. Polar.sh REST API Checkout Session (if POLAR_ACCESS_TOKEN + POLAR_PRODUCT_<PLAN> are set)
+        const accessToken = process.env.POLAR_ACCESS_TOKEN;
+        const productId = process.env[`POLAR_PRODUCT_${planId}`];
+        if (accessToken && productId) {
             try {
-                const response = await fetch('https://api.lemonsqueezy.com/v1/checkouts', {
+                const response = await fetch('https://api.polar.sh/v1/checkouts/', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Accept': 'application/vnd.api+json',
-                        'Content-Type': 'application/vnd.api+json',
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        data: {
-                            type: 'checkouts',
-                            attributes: {
-                                checkout_data: {
-                                    email: user.email,
-                                    custom: {
-                                        user_id: user.id,
-                                        plan_id: planId,
-                                    },
-                                },
-                                product_options: {
-                                    redirect_url: `${origin}/?status=success&plan=${planId}`,
-                                },
-                            },
-                            relationships: {
-                                store: { data: { type: 'stores', id: String(storeId) } },
-                                variant: { data: { type: 'variants', id: String(variantId) } },
-                            },
+                        products: [productId],
+                        customer_email: user.email,
+                        customer_name: user.username || undefined,
+                        external_customer_id: user.id,
+                        metadata: {
+                            user_id: user.id,
+                            plan_id: planId,
                         },
+                        success_url: `${origin}/?status=success&plan=${planId}`,
                     }),
                 });
-
                 const data = await response.json();
-                if (data.data && data.data.attributes && data.data.attributes.url) {
-                    return { success: true, url: data.data.attributes.url };
-                } else {
-                    console.error('[BloxCloud LemonSqueezy] API Error:', data);
-                    return { success: false, error: data.errors ? data.errors[0].detail : 'Failed to create checkout' };
+                if (data && data.url) {
+                    return { success: true, url: data.url };
                 }
+                console.error('[BloxCloud Polar] API Error:', data);
+                return { success: false, error: data.detail || 'Failed to create Polar checkout session' };
             } catch (err) {
-                console.error('[BloxCloud LemonSqueezy] Request failed:', err);
+                console.error('[BloxCloud Polar] Request failed:', err);
                 return { success: false, error: err.message };
             }
         }
 
-        // Lemon Squeezy not configured yet in Render Environment
+        // Polar checkout links not configured yet
         return {
             success: false,
             requiresConfig: true,
-            provider: 'LEMON_SQUEEZY',
+            provider: 'POLAR',
             plan,
-            error: 'Lemon Squeezy credentials not configured yet in Render Environment Variables.',
+            error: 'Polar.sh checkout link not configured for this plan yet.',
         };
     }
 
     planIdFromProductName(productName) {
         const name = String(productName || '').trim().toLowerCase();
+        if (!name) return null;
         for (const plan of Object.values(PLANS)) {
             if (plan.price > 0 && plan.name.toLowerCase() === name) return plan.id;
         }
+        if (name.includes('enterprise')) return 'ENTERPRISE';
+        if (name.includes('scale') || name === 'studio') return 'STUDIO';
+        if (name.includes('pro')) return 'PRO';
         return null;
+    }
+
+    /**
+     * Verifies Standard Webhooks (used by Polar.sh: webhook-id, webhook-timestamp, webhook-signature)
+     */
+    verifyPolarWebhookSignature(rawBody, headers, secret) {
+        if (!secret || !rawBody) return false;
+        const msgId = headers['webhook-id'];
+        const msgTimestamp = headers['webhook-timestamp'];
+        const msgSignature = headers['webhook-signature'];
+        if (!msgId || !msgTimestamp || !msgSignature) return false;
+
+        // Reject replays older than 5 minutes
+        const tsNum = Number(msgTimestamp);
+        if (Number.isFinite(tsNum)) {
+            const ageSec = Math.abs(Math.floor(Date.now() / 1000) - tsNum);
+            if (ageSec > 300) return false;
+        }
+
+        const rawStr = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody);
+        const signedContent = `${msgId}.${msgTimestamp}.${rawStr}`;
+
+        const candidateSecrets = [Buffer.from(secret, 'utf8')];
+        if (secret.startsWith('whsec_')) {
+            const stripped = secret.slice(6);
+            candidateSecrets.unshift(Buffer.from(stripped, 'base64'));
+            candidateSecrets.push(Buffer.from(stripped, 'utf8'));
+        } else {
+            candidateSecrets.push(Buffer.from(secret, 'base64'));
+        }
+
+        const sigParts = String(msgSignature).split(' ');
+        for (const part of sigParts) {
+            const [ver, b64Sig] = part.split(',');
+            if (ver !== 'v1' || !b64Sig) continue;
+            const sigBuf = Buffer.from(b64Sig, 'base64');
+            for (const keyBuf of candidateSecrets) {
+                if (!keyBuf || keyBuf.length === 0) continue;
+                const digest = crypto.createHmac('sha256', keyBuf).update(signedContent).digest();
+                if (digest.length === sigBuf.length && crypto.timingSafeEqual(digest, sigBuf)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     verifyWebhookSignature(rawBody, signature, secret) {
