@@ -58,6 +58,11 @@ app.use((req, res, next) => {
 const dashboardPath = path.resolve(__dirname, '../../dashboard/public');
 app.use(express.static(dashboardPath, { etag: false, maxAge: 0 }));
 
+// Documentation page route
+app.get('/docs', (req, res) => {
+    res.sendFile('docs.html', { root: dashboardPath });
+});
+
 // Path to Luau SDK
 const sdkPath = path.resolve(__dirname, '../../../sdk/BloxCloud.luau');
 

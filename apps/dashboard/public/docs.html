@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxCloud Documentation | The Roblox Developer Platform</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/logo-512.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 50% -15%, #2563eb 0%, #1d4ed8 20%, #0f2b6b 45%, #081438 75%, #020617 100%);
+            background-attachment: fixed;
+            color: #f8fafc;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: rgba(11, 24, 54, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(96, 165, 250, 0.35);
+            box-shadow: 0 12px 35px -8px rgba(29, 78, 216, 0.45), inset 0 1px 0 rgba(191, 219, 254, 0.15);
+        }
+        pre {
+            background: #050c1f !important;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+        code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-200 antialiased flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 bg-[#06102b]/90 backdrop-blur-md border-b border-blue-500/25 px-6 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <a href="/" class="flex items-center space-x-3 group">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1px] shadow-lg shadow-blue-500/40">
+                    <div class="w-full h-full bg-[#081229] rounded-xl flex items-center justify-center">
+                        <i class="fa-solid fa-cube text-cyan-400 text-sm"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-extrabold text-base tracking-tight text-white group-hover:text-cyan-300 transition-colors">BloxCloud</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">DOCS</span>
+                    </div>
+                    <span class="text-[10px] text-blue-200">Developer Documentation & API</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <a href="/" class="px-3.5 py-1.5 rounded-xl bg-blue-950/70 hover:bg-blue-900/60 border border-blue-500/30 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-chart-line text-cyan-400 text-xs"></i>
+                <span>Open Dashboard</span>
+            </a>
+            <a href="/api/v1/sdk/download" download class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-600/30 border border-blue-400/40 transition-all">
+                <i class="fa-solid fa-download text-xs"></i>
+                <span>Download SDK</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto w-full px-6 py-8 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Sidebar Navigation -->
+        <aside class="lg:col-span-3 space-y-6">
+            <div class="sticky top-20 glass-panel rounded-2xl p-4 space-y-1 text-xs">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5">Getting Started</div>
+                <a href="#quickstart" class="block px-3 py-2 rounded-lg font-semibold text-cyan-300 bg-blue-950/70 border border-blue-500/30">1. Quickstart Guide</a>
+                <a href="#sdk-install" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">2. SDK Installation</a>
+
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 pt-4">Core Modules</div>
+                <a href="#telemetry" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">3. Fleet Telemetry & Diagnostics</a>
+                <a href="#liveops" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">4. LiveOps & Kill-Switches</a>
+                <a href="#matchmaking" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">5. Ranked ELO Matchmaking</a>
+                <a href="#marketplace" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">6. Global Auction House & Anti-Dupe</a>
+
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 pt-4">Reference</div>
+                <a href="#rest-api" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">7. REST API Endpoints</a>
+                <a href="#security" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">8. Authentication & Keys</a>
+            </div>
+        </aside>
+
+        <!-- Right Content Area -->
+        <main class="lg:col-span-9 space-y-12 text-sm leading-relaxed">
+
+            <!-- Section 1: Quickstart -->
+            <section id="quickstart" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">1</span>
+                    <h2 class="text-xl font-extrabold text-white">Quickstart: Connecting in 60 Seconds</h2>
+                </div>
+                <p class="text-slate-300">
+                    BloxCloud is a plug-and-play Backend-as-a-Service (BaaS) and LiveOps platform designed specifically for Roblox games. With a single Luau module, your game servers stream real-time physics FPS, memory diagnostics, cross-server matchmaking queues, and emergency remote kill-switches.
+                </p>
+
+                <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-1">
+                    <div class="font-bold flex items-center space-x-1.5 text-amber-300">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Mandatory Roblox Studio Setting</span>
+                    </div>
+                    <div>Roblox Studio blocks outbound cloud HTTP requests by default. Before testing:</div>
+                    <div class="font-mono bg-black/40 px-2 py-1 rounded mt-1">Roblox Studio → Home → Game Settings → Security → Turn ON "Allow HTTP Requests" → Save</div>
+                </div>
+            </section>
+
+            <!-- Section 2: SDK Installation -->
+            <section id="sdk-install" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">2</span>
+                    <h2 class="text-xl font-extrabold text-white">SDK Installation</h2>
+                </div>
+                
+                <ol class="list-decimal pl-5 space-y-3 text-slate-300 text-xs">
+                    <li>
+                        In the Roblox Studio Explorer panel, right click <strong>ReplicatedStorage</strong> → <strong>Insert Object</strong> → <strong>ModuleScript</strong>.
+                    </li>
+                    <li>
+                        Rename the ModuleScript to <code class="text-cyan-300 bg-blue-950/80 px-1 py-0.5 rounded font-mono">BloxCloud</code>.
+                    </li>
+                    <li>
+                        Open <code class="font-mono text-cyan-300">BloxCloud</code>, delete all placeholder code, and paste the source from <a href="/api/v1/sdk/download" download class="text-cyan-400 underline font-semibold">BloxCloud.luau</a>.
+                    </li>
+                    <li>
+                        In <strong>ServerScriptService</strong>, create a regular <strong>Script</strong> (e.g., <code class="font-mono text-cyan-300">BloxCloudInit</code>) and initialize with your studio secret API key:
+                    </li>
+                </ol>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>local BloxCloud = require(game.ReplicatedStorage.BloxCloud).Init("bc_live_your_api_key", {
+    baseUrl = "https://bloxcloud.world",
+    pollingInterval = 5 -- Seconds between liveops updates
+})
+
+print("⚡ BloxCloud connected successfully!")</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 3: Telemetry & Diagnostics -->
+            <section id="telemetry" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">3</span>
+                    <h2 class="text-xl font-extrabold text-white">Fleet Telemetry & Diagnostics</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Roblox does not provide cross-server fleet health metrics in real time. BloxCloud automatically measures <strong>Physics FPS</strong> (<code class="font-mono text-cyan-300">workspace:GetRealPhysicsFPS()</code>), <strong>Memory MB</strong> (<code class="font-mono text-cyan-300">StatsService:GetTotalMemoryUsageMb()</code>), and player counts every 10 seconds.
+                </p>
+
+                <h3 class="font-bold text-white text-xs pt-2">Custom Error Logging</h3>
+                <p class="text-slate-300 text-xs">
+                    Unhandled script crashes are hooked automatically via <code class="font-mono text-cyan-300">ScriptContext.Error</code>. You can also report custom errors manually:
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>-- Manually log a runtime error to the cloud sentry
+BloxCloud.Telemetry:ReportError({
+    message = "DataStore Save Failure for Player 10928",
+    stack = debug.traceback(),
+    scriptName = "SaveManager"
+})</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 4: LiveOps & Kill-Switches -->
+            <section id="liveops" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">4</span>
+                    <h2 class="text-xl font-extrabold text-white">LiveOps & Emergency Kill-Switches</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Found an economy exploit or a game-breaking weapon bug? Toggle feature flags instantly from your web dashboard without publishing a game update or restarting live servers.
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>-- Check a flag synchronously (returns cached value)
+local isDoubleXp = BloxCloud.LiveOps:GetConfig("double_xp_active", false)
+
+-- Listen for real-time remote updates without server restart
+BloxCloud.LiveOps:OnConfigChange("disable_plasmagun", function(newValue, oldValue)
+    if newValue == true then
+        warn("🚨 EMERGENCY: Plasmagun disabled by studio admin!")
+        -- Unequip and lock weapon for all players
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            local gun = player.Backpack:FindFirstChild("Plasmagun")
+            if gun then gun:Destroy() end
+        end
+    end
+end)
+
+-- Listen for global announcements broadcast from the dashboard
+BloxCloud.LiveOps:OnBroadcast(function(broadcast)
+    print("📢 GLOBAL ALERT: " .. broadcast.message)
+    -- Display UI banner to all players in server
+end)</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 5: Ranked Matchmaker -->
+            <section id="matchmaking" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">5</span>
+                    <h2 class="text-xl font-extrabold text-white">Ranked Matchmaking & Cross-Server ELO</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Pair players across all running game servers by skill rating with automatic dynamic tolerance windows (+30 ELO every 2 seconds).
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>local TeleportService = game:GetService("TeleportService")
+local ARENA_PLACE_ID = 1234567890
+
+-- 1. Queue a player for Ranked Matchmaking
+local success, ticket = BloxCloud.Matchmaking:JoinQueue(player, "Ranked_1v1", {
+    rating = player.leaderstats.ELO.Value -- e.g. 1350
+})
+
+-- 2. Handle Match Found Event
+BloxCloud.Matchmaking:OnMatchFound(function(player, match)
+    print("⚔️ MATCH FOUND! Match ID: " .. match.matchId)
+    print("   Opponent Rating: " .. match.avgRatingB)
+    print("   Reserved Arena Server: " .. match.reservedServerCode)
+
+    -- Teleport player into the dedicated private arena instance
+    TeleportService:TeleportToPrivateServer(
+        ARENA_PLACE_ID,
+        match.reservedServerCode,
+        { player }
+    )
+end)
+
+-- 3. Leave Queue (if player steps off matchmaking pad)
+BloxCloud.Matchmaking:LeaveQueue(player)</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 6: Marketplace & Anti-Dupe -->
+            <section id="marketplace" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">6</span>
+                    <h2 class="text-xl font-extrabold text-white">Global Auction House & Anti-Dupe Locks</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Enable cross-server item trading across your universe. BloxCloud uses server-side atomic mutex locking so two players can never purchase or duplicate the same item at the same millisecond.
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>-- 1. List an item globally across all servers
+local ok, listing = BloxCloud.Marketplace:ListGlobalItem(
+    player, 
+    "frost_katana_mythic", 
+    { level = 50, damage = 180 }, 
+    15000 -- Price in coins
+)
+
+-- 2. Fetch active cross-server listings
+local listings = BloxCloud.Marketplace:GetActiveListings()
+for _, item in ipairs(listings) do
+    print(item.itemId .. " listed by " .. item.sellerName .. " for " .. item.price)
+end
+
+-- 3. Atomically buy an item (Atomic anti-dupe guarantee)
+local success, boughtItem = BloxCloud.Marketplace:BuyGlobalItem(buyerPlayer, listing.listingId)
+if success then
+    print("✔ Purchase complete! Gave item to: " .. buyerPlayer.Name)
+else
+    warn("✖ Purchase failed (Already sold or locked)")
+end</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 7: REST API Reference -->
+            <section id="rest-api" class="glass-panel rounded-2xl p-8 space-y-4">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-blue-600/30 text-cyan-300 border border-blue-500/40 flex items-center justify-center font-bold">7</span>
+                    <h2 class="text-xl font-extrabold text-white">REST API Reference</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    All game server requests must include the <code class="font-mono text-cyan-300">x-api-key</code> header with your studio API key. Rate limit: 600 requests per minute per key.
+                </p>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left text-slate-300">
+                        <thead class="text-[11px] uppercase bg-blue-950/80 text-slate-400 border-b border-blue-500/30 font-mono">
+                            <tr>
+                                <th class="px-3 py-2">Method</th>
+                                <th class="px-3 py-2">Endpoint</th>
+                                <th class="px-3 py-2">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-blue-900/40 font-mono">
+                            <tr>
+                                <td class="px-3 py-2 text-emerald-400 font-bold">POST</td>
+                                <td class="px-3 py-2">/api/v1/telemetry/heartbeat</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Report server FPS, memory, and player count</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 text-cyan-400 font-bold">GET</td>
+                                <td class="px-3 py-2">/api/v1/liveops/config</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Fetch active feature flags and studio broadcast</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 text-emerald-400 font-bold">POST</td>
+                                <td class="px-3 py-2">/api/v1/matchmaking/queue</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Enqueue a player by skill rating and queue type</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 text-cyan-400 font-bold">GET</td>
+                                <td class="px-3 py-2">/api/v1/matchmaking/ticket/:id</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Poll matchmaking status and reserved server code</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 text-emerald-400 font-bold">POST</td>
+                                <td class="px-3 py-2">/api/v1/marketplace/list</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Create a cross-server auction house listing</td>
+                            </tr>
+                            <tr>
+                                <td class="px-3 py-2 text-emerald-400 font-bold">POST</td>
+                                <td class="px-3 py-2">/api/v1/marketplace/buy</td>
+                                <td class="px-3 py-2 text-slate-300 font-sans">Atomically purchase listing with anti-dupe lock</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-blue-500/20 bg-[#040a1c] py-6 px-6 text-center text-xs text-slate-500">
+        BloxCloud &copy; 2026. The Enterprise Backend-as-a-Service & LiveOps Platform for Roblox Game Studios.
+    </footer>
+
+</body>
+</html>
