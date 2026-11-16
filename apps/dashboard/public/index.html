@@ -615,9 +615,6 @@
                         <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                         <span>Sign Up for Lemon Squeezy</span>
                     </a>
-                    <button id="btnSandboxUpgrade" onclick="activateSandboxPlan()" class="px-3.5 py-2 rounded-xl bg-blue-950/70 hover:bg-blue-900/60 border border-blue-500/30 text-cyan-300 font-bold transition-all">
-                        ⚡ Activate in Test Mode
-                    </button>
                 </div>
             </div>
         </div>
@@ -768,7 +765,8 @@
 
         function connectWS() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
+            if (!authToken) { setTimeout(connectWS, 2000); return; }
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/?token=${encodeURIComponent(authToken)}`);
 
             ws.onopen = () => {
                 document.getElementById('wsStatus').innerText = 'LIVE SYNC ACTIVE';
@@ -1048,28 +1046,8 @@ end)`;
         }
 
         async function activateSandboxPlan() {
-            if (!pendingPlanSelection) return;
-            const planId = pendingPlanSelection;
             closeLemonConfigModal();
-
-            try {
-                const res = await fetch(`${API}/billing/subscribe`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ planId, paymentMethod: 'TEST_SANDBOX_CARD' })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    currentUser.plan = planId;
-                    updateUserUI();
-                    alert(`⚡ [Test Mode] Activated the ${planId} Tier! Once you add your Lemon Squeezy checkout link or API key in Render, live card & PayPal checkouts will process via Lemon Squeezy.`);
-                    openBillingModal();
-                } else {
-                    alert(`Failed to activate plan: ${data.error}`);
-                }
-            } catch (e) {
-                alert(`Error: ${e.message}`);
-            }
+            alert('Paid plans can only be activated through Lemon Squeezy checkout.');
         }
 
         async function selectPlan(planId) {
@@ -1128,24 +1106,27 @@ end)`;
             const status = params.get('status');
             const plan = params.get('plan');
 
-            if (status === 'success' && plan) {
-                try {
-                    const res = await fetch(`${API}/billing/subscribe`, {
-                        method: 'POST',
-                        headers: getAuthHeaders(),
-                        body: JSON.stringify({ planId: plan, paymentMethod: 'LEMON_SQUEEZY_CHECKOUT' })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        currentUser.plan = plan;
-                        updateUserUI();
-                        alert(`🎉 Payment Verified! Welcome to the BloxCloud ${plan} Tier.`);
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                        openBillingModal();
-                    }
-                } catch (e) {
-                    console.error('Failed to activate plan after redirect:', e);
+            if (status === 'success') {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // The plan is only granted by the verified Lemon Squeezy webhook.
+                // Poll our own account record for a short while until the webhook lands.
+                for (let i = 0; i < 10; i++) {
+                    try {
+                        const res = await fetch(`${API}/auth/me`, { headers: getAuthHeaders() });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.user && data.user.plan && data.user.plan !== 'FREE' && (!plan || data.user.plan === plan)) {
+                                currentUser = data.user;
+                                updateUserUI();
+                                alert(`🎉 Payment confirmed! Welcome to the BloxCloud ${data.user.plan} tier.`);
+                                openBillingModal();
+                                return;
+                            }
+                        }
+                    } catch (e) { /* retry */ }
+                    await new Promise(r => setTimeout(r, 3000));
                 }
+                alert('Thanks for your purchase! Your payment is still being confirmed by Lemon Squeezy. Your plan will update automatically within a few minutes. Refresh the page if it does not.');
             } else if (status === 'cancelled') {
                 alert('Checkout was cancelled. You have not been charged.');
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -1154,7 +1135,8 @@ end)`;
 
         async function refreshData() {
             try {
-                const res = await fetch(`${API}/metrics`);
+                if (!authToken) return;
+                const res = await fetch(`${API}/metrics`, { headers: getAuthHeaders() });
                 const data = await res.json();
 
                 // Telemetry & Stats Cards
@@ -1292,7 +1274,7 @@ end)`;
                 }
 
                 // Render Listings
-                const listingsRes = await fetch(`${API}/marketplace/listings`);
+                const listingsRes = await fetch(`${API}/marketplace/listings`, { headers: getAuthHeaders() });
                 const listingsData = await listingsRes.json();
                 const grid = document.getElementById('listingsGrid');
                 if (listingsData.listings && listingsData.listings.length > 0) {
@@ -1383,7 +1365,7 @@ end)`;
 
             await fetch(`${API}/liveops/config`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ key, value: val, description: desc, changedBy: currentUser ? currentUser.username : 'Studio Admin' })
             });
 
@@ -1396,7 +1378,7 @@ end)`;
         async function toggleFlag(key, value) {
             await fetch(`${API}/liveops/config`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ key, value, changedBy: currentUser ? currentUser.username : 'Studio Admin' })
             });
             refreshData();
@@ -1404,7 +1386,7 @@ end)`;
 
         async function deleteFlag(key) {
             if (!confirm(`Delete flag "${key}"?`)) return;
-            await fetch(`${API}/liveops/config/${encodeURIComponent(key)}`, { method: 'DELETE' });
+            await fetch(`${API}/liveops/config/${encodeURIComponent(key)}`, { method: 'DELETE', headers: getAuthHeaders() });
             refreshData();
         }
 
@@ -1423,7 +1405,7 @@ end)`;
 
             await fetch(`${API}/marketplace/list`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ sellerId, sellerName, itemId, price })
             });
 
@@ -1440,7 +1422,7 @@ end)`;
             if (!message) return;
             await fetch(`${API}/liveops/broadcast`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ message, durationSeconds: 60, severity: 'ALERT' })
             });
             input.value = '';
@@ -1448,7 +1430,7 @@ end)`;
         }
 
         async function clearBroadcast() {
-            await fetch(`${API}/liveops/broadcast/clear`, { method: 'POST' });
+            await fetch(`${API}/liveops/broadcast/clear`, { method: 'POST', headers: getAuthHeaders() });
             refreshData();
         }
 
@@ -1457,7 +1439,7 @@ end)`;
             const buyerName = "Player_" + buyerId.toString().slice(-4);
             const res = await fetch(`${API}/marketplace/buy`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ buyerId, buyerName, listingId })
             });
             const result = await res.json();

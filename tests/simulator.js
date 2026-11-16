@@ -3,40 +3,18 @@
  * Simulates multiple Roblox game servers calling the Nexus API.
  */
 
-const http = require('http');
-
-const API_BASE = 'http://localhost:3001/api/v1';
+const API_BASE = process.env.API_BASE || 'https://bloxcloud.world/api/v1';
 
 async function request(endpoint, method = 'GET', body = null) {
-    return new Promise((resolve, reject) => {
-        const url = new URL(API_BASE + endpoint);
-        const options = {
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': 'test_dev_key_sec_99182',
-            },
-        };
-
-        const req = http.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve(JSON.parse(data));
-                } catch (e) {
-                    resolve(data);
-                }
-            });
-        });
-
-        req.on('error', reject);
-        if (body) req.write(JSON.stringify(body));
-        req.end();
+    const res = await fetch(API_BASE + endpoint, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.BLOXCLOUD_API_KEY || '',
+        },
+        body: body ? JSON.stringify(body) : undefined,
     });
+    return res.json();
 }
 
 function sleep(ms) {
@@ -51,6 +29,18 @@ async function runSimulation() {
     // 1. Check API Health
     const health = await request('/health');
     console.log('✔ Connected to BloxCloud API:', health);
+
+    // 1b. Simulate 3 Live Roblox Game Servers reporting Telemetry
+    console.log('\n--- [TEST 0] CONNECTING 3 SIMULATED ROBLOX GAME SERVERS ---');
+    const servers = [
+        { jobId: 'RBX_PROD_EU_48192', playerCount: 18, fps: 59.8, memoryMb: 420 },
+        { jobId: 'RBX_PROD_US_10928', playerCount: 24, fps: 60.0, memoryMb: 480 },
+        { jobId: 'RBX_PROD_ASIA_77192', playerCount: 12, fps: 58.4, memoryMb: 390 },
+    ];
+    for (const s of servers) {
+        await request('/telemetry/heartbeat', 'POST', s);
+        console.log(`✔ Roblox Server [${s.jobId}] Heartbeat: ${s.playerCount} players, ${s.fps} FPS`);
+    }
 
     // 2. Simulate 24 Players Queueing for Ranked_1v1 and Ranked_2v2
     console.log('\n--- [TEST 1] SIMULATING ROBLOX PLAYERS JOINING QUEUES ---');

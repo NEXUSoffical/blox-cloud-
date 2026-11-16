@@ -22,7 +22,29 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// Keep the exact raw request bytes so webhook signatures can be verified correctly
+app.use(express.json({
+    limit: '256kb',
+    verify: (req, res, buf) => { req.rawBody = buf; },
+}));
+
+// -----------------------------------------------------------------------------
+// SIMPLE IN-MEMORY RATE LIMITER (per IP + API key)
+// -----------------------------------------------------------------------------
+const rateBuckets = new Map();
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_MAX = Number(process.env.RATE_LIMIT_PER_MIN || 600);
+setInterval(() => rateBuckets.clear(), RATE_WINDOW_MS);
+
+app.use('/api/', (req, res, next) => {
+    const id = (req.headers['x-api-key'] || '') + '|' + (req.headers['x-forwarded-for'] || req.ip);
+    const count = (rateBuckets.get(id) || 0) + 1;
+    rateBuckets.set(id, count);
+    if (count > RATE_MAX) {
+        return res.status(429).json({ error: 'Rate limit exceeded. Slow down requests.' });
+    }
+    next();
+});
 
 // Disable all caching
 app.use((req, res, next) => {
@@ -45,6 +67,45 @@ function getAuthUser(req) {
     if (!authHeader) return null;
     const token = authHeader.replace(/^Bearer\s+/i, '');
     return auth.getUserByToken(token);
+}
+
+// Dashboard routes: require a logged-in studio session
+function requireSession(req, res, next) {
+    const user = getAuthUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized: please log in.' });
+    req.user = user;
+    next();
+}
+
+// Game server (Roblox SDK) routes: require a valid studio API key.
+// A logged-in dashboard session is also accepted so the dashboard can call the same endpoints.
+function requireGameKey(req, res, next) {
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        const owner = auth.getUserByApiKey(apiKey);
+        if (owner) {
+            req.user = auth._getSafeUser(owner);
+            return next();
+        }
+        return res.status(401).json({ error: 'Invalid API key.' });
+    }
+    const user = getAuthUser(req);
+    if (user) {
+        req.user = user;
+        return next();
+    }
+    return res.status(401).json({ error: 'Unauthorized: missing x-api-key header.' });
+}
+
+// Platform-owner-only routes (e.g. full data reset)
+function requireAdmin(req, res, next) {
+    const user = getAuthUser(req);
+    const admins = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (!user || !admins.includes(user.email.toLowerCase())) {
+        return res.status(403).json({ error: 'Forbidden.' });
+    }
+    req.user = user;
+    next();
 }
 
 // Create HTTP and WebSocket servers
@@ -150,25 +211,45 @@ app.post('/api/v1/billing/checkout-session', async (req, res) => {
 });
 
 // Lemon Squeezy Webhook Listener
-app.post('/api/v1/billing/lemonsqueezy/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+app.post('/api/v1/billing/lemonsqueezy/webhook', (req, res) => {
     try {
         const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
-        const signature = req.headers['x-signature'];
-        const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        if (!secret) {
+            console.error('[BloxCloud LemonSqueezy] Webhook rejected: LEMONSQUEEZY_WEBHOOK_SECRET is not set.');
+            return res.status(503).json({ error: 'Webhook not configured' });
+        }
 
-        if (secret && !billing.verifyWebhookSignature(rawBody, signature, secret)) {
+        const signature = req.headers['x-signature'];
+        const rawBody = req.rawBody;
+        if (!rawBody || !billing.verifyWebhookSignature(rawBody, signature, secret)) {
             return res.status(401).json({ error: 'Invalid webhook signature' });
         }
 
-        const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const payload = req.body;
         const eventName = payload.meta && payload.meta.event_name;
         const customData = payload.meta && payload.meta.custom_data;
 
-        if (customData && customData.user_id && customData.plan_id) {
+        if (customData && customData.user_id) {
             const userId = customData.user_id;
-            const planId = customData.plan_id;
+            // Derive the plan from the product actually purchased (signed by Lemon Squeezy),
+            // never from user-editable custom checkout data.
+            const attrs = (payload.data && payload.data.attributes) || {};
+            const productName = attrs.product_name || (attrs.first_order_item && attrs.first_order_item.product_name) || '';
+            const planId = billing.planIdFromProductName(productName);
+            if (!planId && !(eventName === 'subscription_cancelled' || eventName === 'subscription_expired')) {
+                console.error(`[BloxCloud LemonSqueezy] Unknown product "${productName}" in ${eventName}`);
+                return res.json({ received: true, ignored: true });
+            }
 
-            if (eventName === 'subscription_created' || eventName === 'order_created' || eventName === 'subscription_updated') {
+            const subStatus = String(attrs.status || '').toLowerCase();
+            const isEnded = eventName === 'subscription_expired' ||
+                (eventName === 'subscription_updated' && (subStatus === 'expired' || subStatus === 'unpaid'));
+
+            if (isEnded) {
+                auth.updateUserPlan(userId, 'FREE');
+                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' });
+                console.log(`[BloxCloud LemonSqueezy] User ${userId} subscription ended (${eventName}/${subStatus})`);
+            } else if (eventName === 'subscription_created' || eventName === 'order_created' || eventName === 'subscription_updated') {
                 auth.updateUserPlan(userId, planId);
                 const user = db.findUserById(userId);
                 if (user) {
@@ -176,10 +257,9 @@ app.post('/api/v1/billing/lemonsqueezy/webhook', express.raw({ type: 'applicatio
                 }
                 broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId });
                 console.log(`[BloxCloud LemonSqueezy] User ${userId} upgraded to ${planId}`);
-            } else if (eventName === 'subscription_cancelled' || eventName === 'subscription_expired') {
-                auth.updateUserPlan(userId, 'FREE');
-                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' });
-                console.log(`[BloxCloud LemonSqueezy] User ${userId} subscription cancelled`);
+            } else if (eventName === 'subscription_cancelled') {
+                // Customer keeps access until the paid period ends; downgrade happens on subscription_expired.
+                console.log(`[BloxCloud LemonSqueezy] User ${userId} cancelled; access continues until period end`);
             }
         }
 
@@ -190,13 +270,17 @@ app.post('/api/v1/billing/lemonsqueezy/webhook', express.raw({ type: 'applicatio
     }
 });
 
-// Direct plan activation / testing fallback
+// Plan changes are ONLY applied by the verified Lemon Squeezy webhook above.
+// This endpoint is kept solely for downgrading to the Free plan.
 app.post('/api/v1/billing/subscribe', (req, res) => {
     const user = getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { planId, paymentMethod } = req.body;
-    const subResult = billing.createSubscription(user, planId, paymentMethod || 'CREDIT_CARD_VISA');
+    const { planId } = req.body;
+    if (planId !== 'FREE') {
+        return res.status(403).json({ success: false, error: 'Paid plans can only be activated through Lemon Squeezy checkout.' });
+    }
+    const subResult = billing.createSubscription(user, 'FREE', 'FREE_TIER');
     if (!subResult.success) {
         return res.status(400).json(subResult);
     }
@@ -237,25 +321,25 @@ app.get('/api/v1/sdk/download', (req, res) => {
 // TELEMETRY & LIVE SERVER STATS (Stats Roblox Does Not Provide)
 // -----------------------------------------------------------------------------
 
-app.post('/api/v1/telemetry/heartbeat', (req, res) => {
+app.post('/api/v1/telemetry/heartbeat', requireGameKey, (req, res) => {
     const serverInfo = telemetry.recordHeartbeat(req.body);
     broadcastToDashboard('SERVER_HEARTBEAT', serverInfo);
     res.json({ success: true, server: serverInfo });
 });
 
-app.post('/api/v1/telemetry/error', (req, res) => {
+app.post('/api/v1/telemetry/error', requireGameKey, (req, res) => {
     const errorEntry = telemetry.recordError(req.body);
     broadcastToDashboard('SERVER_ERROR_RECORDED', errorEntry);
     res.json({ success: true, error: errorEntry });
 });
 
-app.post('/api/v1/telemetry/exploit-alert', (req, res) => {
+app.post('/api/v1/telemetry/exploit-alert', requireGameKey, (req, res) => {
     const alertEntry = telemetry.recordExploitAlert(req.body);
     broadcastToDashboard('EXPLOIT_ALERT_RECORDED', alertEntry);
     res.json({ success: true, alert: alertEntry });
 });
 
-app.get('/api/v1/telemetry/overview', (req, res) => {
+app.get('/api/v1/telemetry/overview', requireSession, (req, res) => {
     res.json(telemetry.getOverview());
 });
 
@@ -267,7 +351,7 @@ app.get('/api/v1/health', (req, res) => {
     res.json({ status: 'HEALTHY', version: '1.0.0', uptime: process.uptime() });
 });
 
-app.get('/api/v1/metrics', (req, res) => {
+app.get('/api/v1/metrics', requireSession, (req, res) => {
     const mmStats = matchmaker.getStats();
     const liveConfig = liveops.getAllConfig();
     const activeListings = marketplace.getListings();
@@ -289,7 +373,7 @@ app.get('/api/v1/metrics', (req, res) => {
     });
 });
 
-app.post('/api/v1/reset', (req, res) => {
+app.post('/api/v1/reset', requireAdmin, (req, res) => {
     matchmaker.tickets.clear();
     matchmaker.matches.clear();
     for (const q of Object.keys(matchmaker.queues)) matchmaker.queues[q] = [];
@@ -312,7 +396,7 @@ app.post('/api/v1/reset', (req, res) => {
 });
 
 // MATCHMAKING ENDPOINTS
-app.post('/api/v1/matchmaking/queue', (req, res) => {
+app.post('/api/v1/matchmaking/queue', requireGameKey, (req, res) => {
     const { userId, username, queueType, rating, partyMembers, region } = req.body;
     if (!userId || !username) {
         return res.status(400).json({ error: 'Missing userId or username' });
@@ -323,45 +407,45 @@ app.post('/api/v1/matchmaking/queue', (req, res) => {
     res.json(ticket);
 });
 
-app.post('/api/v1/matchmaking/leave', (req, res) => {
+app.post('/api/v1/matchmaking/leave', requireGameKey, (req, res) => {
     const { userId, ticketId } = req.body;
     const success = matchmaker.dequeue(userId, ticketId);
     res.json({ success });
 });
 
-app.get('/api/v1/matchmaking/ticket/:ticketId', (req, res) => {
+app.get('/api/v1/matchmaking/ticket/:ticketId', requireGameKey, (req, res) => {
     const ticket = matchmaker.getTicket(req.params.ticketId);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
     res.json(ticket);
 });
 
-app.get('/api/v1/matchmaking/stats', (req, res) => {
+app.get('/api/v1/matchmaking/stats', requireSession, (req, res) => {
     res.json(matchmaker.getStats());
 });
 
 // LIVEOPS & FEATURE FLAGS
-app.get('/api/v1/liveops/config', (req, res) => {
+app.get('/api/v1/liveops/config', requireGameKey, (req, res) => {
     res.json(liveops.getAllConfig());
 });
 
-app.post('/api/v1/liveops/config', (req, res) => {
-    const { key, value, description, changedBy } = req.body;
+app.post('/api/v1/liveops/config', requireSession, (req, res) => {
+    const { key, value, description } = req.body;
     if (!key || value === undefined) {
         return res.status(400).json({ error: 'Missing key or value' });
     }
 
-    const result = liveops.setFlag(key, value, description || '', changedBy || 'Studio Admin');
+    const result = liveops.setFlag(key, value, description || '', req.user.username || 'Studio Admin');
     broadcastToDashboard('CONFIG_CHANGED', result);
     res.json({ success: true, result, currentConfig: liveops.getAllConfig() });
 });
 
-app.delete('/api/v1/liveops/config/:key', (req, res) => {
-    const deleted = liveops.deleteFlag(req.params.key, 'Studio Admin');
+app.delete('/api/v1/liveops/config/:key', requireSession, (req, res) => {
+    const deleted = liveops.deleteFlag(req.params.key, req.user.username || 'Studio Admin');
     broadcastToDashboard('FLAG_DELETED', { key: req.params.key });
     res.json({ success: deleted });
 });
 
-app.post('/api/v1/liveops/broadcast', (req, res) => {
+app.post('/api/v1/liveops/broadcast', requireSession, (req, res) => {
     const { message, durationSeconds, severity } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
 
@@ -370,14 +454,14 @@ app.post('/api/v1/liveops/broadcast', (req, res) => {
     res.json({ success: true, broadcast });
 });
 
-app.post('/api/v1/liveops/broadcast/clear', (req, res) => {
+app.post('/api/v1/liveops/broadcast/clear', requireSession, (req, res) => {
     liveops.clearBroadcast();
     broadcastToDashboard('BROADCAST_CLEARED', {});
     res.json({ success: true });
 });
 
 // MARKETPLACE & AUCTION HOUSE
-app.post('/api/v1/marketplace/list', (req, res) => {
+app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
     const { sellerId, sellerName, itemId, itemData, price } = req.body;
     if (!sellerId || !itemId || !price) {
         return res.status(400).json({ error: 'Missing required listing fields: sellerId, itemId, price' });
@@ -388,7 +472,7 @@ app.post('/api/v1/marketplace/list', (req, res) => {
     res.json(listing);
 });
 
-app.post('/api/v1/marketplace/buy', (req, res) => {
+app.post('/api/v1/marketplace/buy', requireGameKey, (req, res) => {
     const { buyerId, buyerName, listingId } = req.body;
     if (!buyerId || !listingId) {
         return res.status(400).json({ error: 'buyerId and listingId required' });
@@ -403,18 +487,27 @@ app.post('/api/v1/marketplace/buy', (req, res) => {
     res.json(result);
 });
 
-app.get('/api/v1/marketplace/listings', (req, res) => {
+app.get('/api/v1/marketplace/listings', requireGameKey, (req, res) => {
     res.json({ listings: marketplace.getListings() });
 });
 
-app.get('/api/v1/marketplace/ledger', (req, res) => {
+app.get('/api/v1/marketplace/ledger', requireSession, (req, res) => {
     res.json({ ledger: marketplace.getLedger() });
 });
 
 // -----------------------------------------------------------------------------
 // WEBSOCKET CONNECTION
 // -----------------------------------------------------------------------------
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+    // Only logged-in dashboard sessions may subscribe to the live feed
+    let token = null;
+    try {
+        token = new URL(req.url, 'http://localhost').searchParams.get('token');
+    } catch (e) { /* ignore */ }
+    if (!auth.getUserByToken(token)) {
+        ws.close(4401, 'Unauthorized');
+        return;
+    }
     ws.send(JSON.stringify({
         type: 'INITIAL_SNAPSHOT',
         data: {

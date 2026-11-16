@@ -203,8 +203,16 @@ class BillingManager {
         };
     }
 
+    planIdFromProductName(productName) {
+        const name = String(productName || '').trim().toLowerCase();
+        for (const plan of Object.values(PLANS)) {
+            if (plan.price > 0 && plan.name.toLowerCase() === name) return plan.id;
+        }
+        return null;
+    }
+
     verifyWebhookSignature(rawBody, signature, secret) {
-        if (!secret) return true;
+        if (!secret || !signature) return false;
         const hmac = crypto.createHmac('sha256', secret);
         const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
         const sig = Buffer.from(signature || '', 'utf8');
