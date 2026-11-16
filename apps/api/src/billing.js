@@ -88,9 +88,9 @@ const PLANS = {
 };
 
 const DEFAULT_CHECKOUT_URLS = {
-    PRO: process.env.POLAR_PRO_URL || '',
-    STUDIO: process.env.POLAR_STUDIO_URL || '',
-    ENTERPRISE: process.env.POLAR_ENTERPRISE_URL || '',
+    PRO: process.env.POLAR_PRO_URL || 'https://buy.polar.sh/polar_cl_DiYoyfZ4T1cLhJUglyKj9OGdLbyoiuYZBCobP2aCHbK',
+    STUDIO: process.env.POLAR_STUDIO_URL || 'https://buy.polar.sh/polar_cl_fOynzBidhalbt3wZFgiUDtTD2g5KZc5OaM02n2wlsyH',
+    ENTERPRISE: process.env.POLAR_ENTERPRISE_URL || 'https://buy.polar.sh/polar_cl_w0MS3pomc2zzEQjj0tVvrGfC0ccUwTyLAO04w2Qe8ED',
 };
 
 class BillingManager {
