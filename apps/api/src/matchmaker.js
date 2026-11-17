@@ -6,6 +6,7 @@
 
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
+const db = require('./db');
 
 class Matchmaker {
     constructor() {
@@ -171,6 +172,9 @@ class Matchmaker {
         };
 
         this.matches.set(matchId, match);
+        if (studioId && studioId !== 'default') {
+            db.incrementMonthlyMatchCount(studioId);
+        }
 
         // Mark tickets as MATCHED
         for (const t of tickets) {
@@ -231,8 +235,10 @@ class Matchmaker {
             }
         }
 
+        const persistedCount = studioId ? db.getMonthlyMatchCount(studioId) : 0;
+
         return {
-            totalMatchesCreated: filteredMatches.length,
+            totalMatchesCreated: Math.max(filteredMatches.length, persistedCount),
             activeQueuedPlayers: activeQueued,
             queues: queuesCount,
             recentMatches: filteredMatches.slice(-10).reverse(),

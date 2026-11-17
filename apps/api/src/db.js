@@ -23,7 +23,10 @@ const defaultSchema = {
     flags: [],
     listings: [],
     ledger: [],
+    matchCounts: {},
 };
+
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 let pgPool = null;
 if (process.env.DATABASE_URL) {
@@ -41,10 +44,59 @@ if (process.env.DATABASE_URL) {
 
 class PersistentDB {
     constructor() {
+        this._pgWriteChain = Promise.resolve();
         this.data = this._load();
+        this._pruneStaleAndTestRecords();
         if (!fs.existsSync(dbFile)) {
             this.save();
         }
+    }
+
+    _currentMonthKey(studioId) {
+        const now = new Date();
+        const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+        return `${studioId}:${ym}`;
+    }
+
+    _pruneStaleAndTestRecords() {
+        let changed = false;
+        const now = Date.now();
+
+        // 1. Remove automated test accounts (*@test.dev, *@t.dev) older than 5 minutes
+        const testUserIds = new Set();
+        const beforeUsers = (this.data.users || []).length;
+        this.data.users = (this.data.users || []).filter(u => {
+            const email = String(u.email || '').toLowerCase();
+            const isTest = email.endsWith('@test.dev') || email.endsWith('@t.dev');
+            if (isTest && (!u.createdAt || now - u.createdAt > 5 * 60 * 1000)) {
+                testUserIds.add(u.id);
+                return false;
+            }
+            return true;
+        });
+        if (this.data.users.length !== beforeUsers) changed = true;
+
+        // 2. Remove expired sessions (> 30 days) or sessions for deleted test accounts
+        const beforeSessions = (this.data.sessions || []).length;
+        this.data.sessions = (this.data.sessions || []).filter(s => {
+            if (testUserIds.has(s.userId)) return false;
+            if (s.createdAt && now - s.createdAt > SESSION_TTL_MS) return false;
+            return true;
+        });
+        if (this.data.sessions.length !== beforeSessions) changed = true;
+
+        // 3. Remove legacy un-scoped flags (no studioId) or flags belonging to deleted test accounts
+        const beforeFlags = (this.data.flags || []).length;
+        this.data.flags = (this.data.flags || []).filter(f => f.studioId && !testUserIds.has(f.studioId));
+        if (this.data.flags.length !== beforeFlags) changed = true;
+
+        // 4. Remove listings/ledger belonging to deleted test accounts
+        if (testUserIds.size > 0) {
+            this.data.listings = (this.data.listings || []).filter(l => !testUserIds.has(l.studioId));
+            this.data.ledger = (this.data.ledger || []).filter(tx => !testUserIds.has(tx.studioId));
+        }
+
+        return changed;
     }
 
     async initCloud() {
@@ -60,6 +112,9 @@ class PersistentDB {
             const res = await pgPool.query("SELECT value FROM bloxcloud_store WHERE key = 'root'");
             if (res.rows.length > 0 && res.rows[0].value) {
                 this.data = { ...defaultSchema, ...res.rows[0].value };
+                if (this._pruneStaleAndTestRecords()) {
+                    this.save();
+                }
                 console.log('[BloxCloud DB] Successfully synchronized database state from cloud PostgreSQL!');
             } else {
                 await pgPool.query(
@@ -86,21 +141,25 @@ class PersistentDB {
     }
 
     save() {
+        const snapshot = JSON.stringify(this.data, null, 2);
         try {
             const tempFile = `${dbFile}.tmp`;
-            fs.writeFileSync(tempFile, JSON.stringify(this.data, null, 2), 'utf8');
+            fs.writeFileSync(tempFile, snapshot, 'utf8');
             fs.renameSync(tempFile, dbFile);
         } catch (e) {
             console.error('[BloxCloud DB] Failed to save database to disk:', e);
         }
 
         if (pgPool) {
-            pgPool.query(
-                `INSERT INTO bloxcloud_store (key, value, updated_at) 
-                 VALUES ('root', $1, NOW()) 
-                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-                [JSON.stringify(this.data)]
-            ).catch(err => console.error('[BloxCloud DB] PostgreSQL background save error:', err));
+            // Serialize PostgreSQL writes so concurrent updates never overwrite a newer snapshot
+            this._pgWriteChain = this._pgWriteChain
+                .then(() => pgPool.query(
+                    `INSERT INTO bloxcloud_store (key, value, updated_at) 
+                     VALUES ('root', $1, NOW()) 
+                     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+                    [snapshot]
+                ))
+                .catch(err => console.error('[BloxCloud DB] PostgreSQL background save error:', err));
         }
     }
 
@@ -137,7 +196,30 @@ class PersistentDB {
 
     getUserIdByToken(token) {
         const session = this.data.sessions.find(s => s.token === token);
-        return session ? session.userId : null;
+        if (!session) return null;
+        if (session.createdAt && Date.now() - session.createdAt > SESSION_TTL_MS) {
+            this.deleteSession(token);
+            return null;
+        }
+        return session.userId;
+    }
+
+    // MONTHLY MATCH METERING (Persistent per studio & calendar month)
+    incrementMonthlyMatchCount(studioId) {
+        if (!studioId) return 0;
+        if (!this.data.matchCounts || typeof this.data.matchCounts !== 'object') {
+            this.data.matchCounts = {};
+        }
+        const key = this._currentMonthKey(studioId);
+        this.data.matchCounts[key] = (Number(this.data.matchCounts[key]) || 0) + 1;
+        this.save();
+        return this.data.matchCounts[key];
+    }
+
+    getMonthlyMatchCount(studioId) {
+        if (!studioId || !this.data.matchCounts) return 0;
+        const key = this._currentMonthKey(studioId);
+        return Number(this.data.matchCounts[key]) || 0;
     }
 
     deleteSession(token) {
