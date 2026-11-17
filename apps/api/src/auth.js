@@ -34,8 +34,8 @@ class AuthManager {
         const user = {
             id: userId,
             email: cleanEmail,
-            username: username.trim() || 'StudioDeveloper',
-            studioName: studioName.trim() || 'Independent Studio',
+            username: String(username || '').trim() || 'StudioDeveloper',
+            studioName: String(studioName || '').trim() || 'Independent Studio',
             salt,
             passwordHash,
             apiKey,

@@ -613,8 +613,9 @@ app.post('/api/v1/liveops/broadcast/clear', requireSession, (req, res) => {
 app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
     const studioId = req.user.id;
     const { sellerId, sellerName, itemId, itemData, price } = req.body;
-    if (!sellerId || !itemId || !price) {
-        return res.status(400).json({ error: 'Missing required listing fields: sellerId, itemId, price' });
+    const numPrice = Math.floor(Number(price));
+    if (!sellerId || !itemId || !Number.isFinite(numPrice) || numPrice <= 0) {
+        return res.status(400).json({ error: 'Valid sellerId, itemId, and a positive integer price are required' });
     }
 
     const plan = billing.getPlan(req.user.plan);
@@ -626,7 +627,7 @@ app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
         });
     }
 
-    const listing = marketplace.listItem({ sellerId, sellerName, itemId, itemData, price }, studioId);
+    const listing = marketplace.listItem({ sellerId, sellerName, itemId, itemData, price: numPrice }, studioId);
     broadcastToDashboard('ITEM_LISTED', listing, studioId);
     res.json(listing);
 });

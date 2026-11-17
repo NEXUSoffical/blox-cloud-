@@ -101,6 +101,17 @@ function BloxCloud.Init(apiKey, options)
     BloxCloud.Telemetry._StartTelemetryLoop()
     BloxCloud.Telemetry._HookErrorSentry()
 
+    -- Automatically dequeue players who disconnect while in matchmaking queue
+    pcall(function()
+        Players.PlayerRemoving:Connect(function(player)
+            if _activePlayerQueues[player.UserId] then
+                task.spawn(function()
+                    BloxCloud.Matchmaking:LeaveQueue(player)
+                end)
+            end
+        end)
+    end)
+
     return BloxCloud
 end
 

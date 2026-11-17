@@ -17,8 +17,34 @@ class Matchmaker {
         // matchId -> match object
         this.matches = new Map();
 
-        // Start matching loop (every 1 second)
+        // Start matching loop (every 1 second) and memory cleanup (every 60 seconds)
         this.interval = setInterval(() => this.processQueues(), 1000);
+        this.cleanupInterval = setInterval(() => this._pruneExpiredMemory(), 60 * 1000);
+    }
+
+    _pruneExpiredMemory() {
+        const now = Date.now();
+        const TICKET_FINISHED_TTL = 10 * 60 * 1000; // 10 minutes after match/cancel
+        const TICKET_QUEUED_TTL = 15 * 60 * 1000;   // 15 minutes max queue wait
+        const MATCH_HISTORY_TTL = 60 * 60 * 1000;   // 1 hour in-memory match cache
+
+        for (const [tId, ticket] of this.tickets.entries()) {
+            const age = now - (ticket.createdAt || now);
+            if (ticket.status !== 'QUEUED' && age > TICKET_FINISHED_TTL) {
+                this.tickets.delete(tId);
+            } else if (ticket.status === 'QUEUED' && age > TICKET_QUEUED_TTL) {
+                this.dequeue(ticket.userId, tId, ticket.studioId);
+                this.tickets.delete(tId);
+            }
+        }
+
+        if (this.matches.size > 200) {
+            for (const [mId, match] of this.matches.entries()) {
+                if (now - (match.createdAt || now) > MATCH_HISTORY_TTL) {
+                    this.matches.delete(mId);
+                }
+            }
+        }
     }
 
     /**

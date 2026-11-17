@@ -1416,11 +1416,20 @@ end)`;
 
             if (!key) { alert("Flag key is required"); return; }
 
-            await fetch(`${API}/liveops/config`, {
+            const res = await fetch(`${API}/liveops/config`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ key, value: val, description: desc, changedBy: currentUser ? currentUser.username : 'Studio Admin' })
             });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                alert(data.error || 'Failed to create feature flag');
+                if (res.status === 402) {
+                    closeAddFlagModal();
+                    openBillingModal();
+                }
+                return;
+            }
 
             document.getElementById('flagKeyInput').value = '';
             document.getElementById('flagDescInput').value = '';
@@ -1449,18 +1458,30 @@ end)`;
 
         async function submitNewItem() {
             const itemId = document.getElementById('itemIdentifierInput').value.trim();
-            const price = Number(document.getElementById('itemPriceInput').value);
+            const price = Math.floor(Number(document.getElementById('itemPriceInput').value));
             const sellerName = document.getElementById('itemSellerInput').value.trim() || (currentUser ? currentUser.username : 'Admin');
 
-            if (!itemId || !price) { alert("Item ID and price are required"); return; }
+            if (!itemId || !Number.isFinite(price) || price <= 0) {
+                alert("Item ID and a positive coin price are required");
+                return;
+            }
 
             const sellerId = Math.floor(10000000 + Math.random() * 90000000).toString();
 
-            await fetch(`${API}/marketplace/list`, {
+            const res = await fetch(`${API}/marketplace/list`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ sellerId, sellerName, itemId, price })
             });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                alert(data.error || 'Failed to list item');
+                if (res.status === 402) {
+                    closeListItemModal();
+                    openBillingModal();
+                }
+                return;
+            }
 
             document.getElementById('itemIdentifierInput').value = '';
             document.getElementById('itemPriceInput').value = '';

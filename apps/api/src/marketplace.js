@@ -17,6 +17,7 @@ class Marketplace {
     listItem(data, studioId = null) {
         const { sellerId, sellerName, itemId, itemData = {}, price } = data;
 
+        const numPrice = Math.max(1, Math.floor(Number(price) || 1));
         const listingId = 'list_' + uuidv4().slice(0, 8);
         const listing = {
             listingId,
@@ -25,7 +26,7 @@ class Marketplace {
             sellerName: String(sellerName),
             itemId,
             itemData,
-            price: Number(price) || 0,
+            price: numPrice,
             status: 'ACTIVE', // 'ACTIVE' | 'SOLD' | 'CANCELLED'
             createdAt: Date.now(),
         };

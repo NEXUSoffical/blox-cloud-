@@ -48,7 +48,8 @@ class TelemetryManager {
             health: (serverFps < 40 || serverMemoryMb > 1500) ? 'DEGRADED' : 'HEALTHY',
         };
 
-        this.activeServers.set(jobId, serverInfo);
+        const compositeKey = `${studioId || 'default'}:${jobId}`;
+        this.activeServers.set(compositeKey, serverInfo);
         return serverInfo;
     }
 
