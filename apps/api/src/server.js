@@ -223,6 +223,8 @@ app.post('/api/v1/billing/checkout-session', async (req, res) => {
 });
 
 // Polar.sh Webhook Listener (Standard Webhooks specification)
+const processedPolarWebhookIds = new Set();
+
 app.post('/api/v1/billing/polar/webhook', (req, res) => {
     try {
         const secret = process.env.POLAR_WEBHOOK_SECRET || process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
@@ -234,6 +236,19 @@ app.post('/api/v1/billing/polar/webhook', (req, res) => {
         const rawBody = req.rawBody;
         if (!rawBody || !billing.verifyPolarWebhookSignature(rawBody, req.headers, secret)) {
             return res.status(401).json({ error: 'Invalid webhook signature' });
+        }
+
+        // Idempotency: ignore duplicate deliveries of the exact same webhook-id
+        const webhookId = req.headers['webhook-id'];
+        if (webhookId) {
+            if (processedPolarWebhookIds.has(webhookId)) {
+                return res.json({ received: true, duplicate: true });
+            }
+            processedPolarWebhookIds.add(webhookId);
+            if (processedPolarWebhookIds.size > 1000) {
+                const oldest = processedPolarWebhookIds.values().next().value;
+                processedPolarWebhookIds.delete(oldest);
+            }
         }
 
         const payload = req.body || {};
@@ -276,8 +291,16 @@ app.post('/api/v1/billing/polar/webhook', (req, res) => {
                 }
                 auth.updateUserPlan(userId, planId);
                 const user = db.findUserById(userId);
-                if (user) {
-                    billing.createSubscription(user, planId, 'POLAR');
+                // Only record 1 invoice per billing event (Polar sends subscription.created, subscription.active,
+                // subscription.updated, and order.paid together on checkout).
+                if (user && (eventType === 'order.paid' || eventType === 'subscription.created')) {
+                    const recentInvoices = billing.getUserInvoices(userId);
+                    const hasRecent = recentInvoices.some(
+                        inv => inv.planId === planId && Date.now() - (inv.timestamp || 0) < 5 * 60 * 1000
+                    );
+                    if (!hasRecent) {
+                        billing.createSubscription(user, planId, 'POLAR');
+                    }
                 }
                 broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId }, userId);
                 console.log(`[BloxCloud Polar] User ${userId} upgraded to ${planId}`);

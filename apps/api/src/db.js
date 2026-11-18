@@ -45,11 +45,16 @@ if (process.env.DATABASE_URL) {
 class PersistentDB {
     constructor() {
         this._pgWriteChain = Promise.resolve();
+        this._saveTimer = null;
         this.data = this._load();
         this._pruneStaleAndTestRecords();
         if (!fs.existsSync(dbFile)) {
-            this.save();
+            this._flushSave();
         }
+        // Periodically prune expired sessions and old demo/test accounts every hour
+        setInterval(() => {
+            if (this._pruneStaleAndTestRecords()) this.save();
+        }, 60 * 60 * 1000).unref();
     }
 
     _currentMonthKey(studioId) {
@@ -61,14 +66,20 @@ class PersistentDB {
     _pruneStaleAndTestRecords() {
         let changed = false;
         const now = Date.now();
+        const DEMO_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for demo sandbox accounts
 
-        // 1. Remove automated test accounts (*@test.dev, *@t.dev) older than 5 minutes
+        // 1. Remove automated test accounts (*@test.dev, *@t.dev > 5m) and old demo accounts (*@sandbox.bloxcloud.world > 7d)
         const testUserIds = new Set();
         const beforeUsers = (this.data.users || []).length;
         this.data.users = (this.data.users || []).filter(u => {
             const email = String(u.email || '').toLowerCase();
             const isTest = email.endsWith('@test.dev') || email.endsWith('@t.dev');
+            const isDemo = email.endsWith('@sandbox.bloxcloud.world');
             if (isTest && (!u.createdAt || now - u.createdAt > 5 * 60 * 1000)) {
+                testUserIds.add(u.id);
+                return false;
+            }
+            if (isDemo && u.createdAt && now - u.createdAt > DEMO_TTL_MS) {
                 testUserIds.add(u.id);
                 return false;
             }
@@ -141,6 +152,17 @@ class PersistentDB {
     }
 
     save() {
+        // Coalesce bursts of rapid writes within a 150ms window so rapid matchmaking or flag toggles
+        // only serialize and write to disk/PostgreSQL once per burst.
+        if (this._saveTimer) return;
+        this._saveTimer = setTimeout(() => {
+            this._saveTimer = null;
+            this._flushSave();
+        }, 150);
+        if (this._saveTimer.unref) this._saveTimer.unref();
+    }
+
+    _flushSave() {
         const snapshot = JSON.stringify(this.data, null, 2);
         try {
             const tempFile = `${dbFile}.tmp`;
