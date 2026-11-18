@@ -82,7 +82,7 @@ const PLANS = {
             'Custom Algorithmic ELO Formulas',
             '99.9% Uptime Financial SLA',
             'Dedicated Private Cloud Capacity',
-            'Direct Discord Engineer Support',
+            'Direct 1-on-1 Engineer Support',
         ],
     },
 };
