@@ -719,6 +719,16 @@ async function startServer() {
     }
     server.listen(port, () => {
         console.log(`[BloxCloud] API, Auth & Billing Server listening on http://localhost:${port}`);
+
+        // Built-in 24/7 keep-alive pulse on Render so the instance never spins down after 15m idle
+        if (process.env.RENDER || process.env.DATABASE_URL) {
+            const keepAliveUrl = process.env.RENDER_EXTERNAL_URL
+                ? `${process.env.RENDER_EXTERNAL_URL}/api/v1/health`
+                : 'https://bloxcloud.world/api/v1/health';
+            setInterval(() => {
+                fetch(keepAliveUrl).catch(() => {});
+            }, 10 * 60 * 1000).unref();
+        }
     });
 }
 

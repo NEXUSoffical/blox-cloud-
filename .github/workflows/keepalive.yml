@@ -1,0 +1,16 @@
+name: 24/7 Render Keep-Alive Ping
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping BloxCloud Production Health Endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://bloxcloud.world/api/v1/health)
+          echo "Health check status: $STATUS"
+          test "$STATUS" = "200"
