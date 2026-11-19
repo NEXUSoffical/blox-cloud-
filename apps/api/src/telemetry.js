@@ -23,8 +23,10 @@ class TelemetryManager {
         const {
             jobId,
             placeId = 'Universe_Place',
+            engine: rawEngine,
             playerCount = 0,
             serverFps = 60,
+            serverTps,
             serverMemoryMb = 450,
             serverPing = 35,
             region = 'US-East',
@@ -33,19 +35,31 @@ class TelemetryManager {
 
         if (!jobId) return false;
 
+        const isMinecraft = String(rawEngine || '').toUpperCase() === 'MINECRAFT' || serverTps !== undefined;
+        const engine = isMinecraft ? 'MINECRAFT' : 'ROBLOX';
+        const tpsVal = isMinecraft ? (Number(serverTps ?? serverFps) || 20.0) : null;
+        const fpsVal = isMinecraft ? tpsVal : (Number(serverFps) || 60);
+        const memVal = Math.round(Number(serverMemoryMb) || 450);
+
+        const isDegraded = isMinecraft
+            ? (tpsVal < 15.0 || memVal > 6144)
+            : (fpsVal < 40 || memVal > 1500);
+
         const serverInfo = {
             jobId,
             placeId,
+            engine,
             studioId,
             playerCount: Number(playerCount) || 0,
-            serverFps: Number(serverFps) || 60,
-            serverMemoryMb: Math.round(Number(serverMemoryMb) || 450),
+            serverFps: fpsVal,
+            serverTps: tpsVal,
+            serverMemoryMb: memVal,
             serverPing: Math.round(Number(serverPing) || 35),
             region,
             uptimeSeconds: Math.round(Number(uptimeSeconds) || 0),
             lastHeartbeat: Date.now(),
-            // Health assessment
-            health: (serverFps < 40 || serverMemoryMb > 1500) ? 'DEGRADED' : 'HEALTHY',
+            // Health assessment (Minecraft max = 20 TPS; Roblox max = 60 FPS)
+            health: isDegraded ? 'DEGRADED' : 'HEALTHY',
         };
 
         const compositeKey = `${studioId || 'default'}:${jobId}`;

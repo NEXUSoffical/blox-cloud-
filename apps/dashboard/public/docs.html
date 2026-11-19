@@ -69,9 +69,13 @@
                 <i class="fa-solid fa-chart-line text-cyan-400 text-xs"></i>
                 <span>Open Dashboard</span>
             </a>
-            <a href="/api/v1/sdk/download" download class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-600/30 border border-blue-400/40 transition-all">
+            <a href="/api/v1/sdk/download" download class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-blue-600/30 border border-blue-400/40 transition-all">
                 <i class="fa-solid fa-download text-xs"></i>
-                <span>Download SDK</span>
+                <span>Roblox SDK</span>
+            </a>
+            <a href="/api/v1/sdk/minecraft/download" download class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-emerald-600/30 border border-emerald-400/40 transition-all">
+                <i class="fa-solid fa-cubes text-xs"></i>
+                <span>Minecraft Plugin</span>
             </a>
         </div>
     </header>
@@ -84,7 +88,8 @@
             <div class="sticky top-20 glass-panel rounded-2xl p-4 space-y-1 text-xs">
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5">Getting Started</div>
                 <a href="#quickstart" class="block px-3 py-2 rounded-lg font-semibold text-cyan-300 bg-blue-950/70 border border-blue-500/30">1. Quickstart Guide</a>
-                <a href="#sdk-install" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">2. SDK Installation</a>
+                <a href="#sdk-install" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">2. Roblox SDK Setup</a>
+                <a href="#minecraft-sdk" class="block px-3 py-2 rounded-lg font-semibold text-emerald-300 hover:text-white hover:bg-emerald-900/30 transition-all">2B. Minecraft Plugin Setup</a>
 
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 pt-4">Core Modules</div>
                 <a href="#telemetry" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">3. Fleet Telemetry & Diagnostics</a>
@@ -150,6 +155,41 @@
 })
 
 print("⚡ BloxCloud connected successfully!")</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 2B: Minecraft Server Plugin (Paper / Spigot / Velocity) -->
+            <section id="minecraft-sdk" class="glass-panel rounded-2xl p-8 space-y-4 border-emerald-500/40">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 flex items-center justify-center font-bold">2B</span>
+                    <h2 class="text-xl font-extrabold text-white">Minecraft Server Plugin (Paper / Spigot / Purpur / Velocity)</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Connect any Minecraft server or multi-server Velocity/BungeeCord network without configuring Redis or MySQL. Download <a href="/api/v1/sdk/minecraft/download" download class="text-emerald-300 underline font-semibold">BloxCloudPlugin.java</a> (uses standard Java 17+ <code class="font-mono text-cyan-300">HttpClient</code> with zero external dependencies) and configure <code class="font-mono text-emerald-300">plugins/BloxCloud/config.yml</code>:
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-emerald-300 overflow-x-auto"><code># plugins/BloxCloud/config.yml
+api-key: "bc_live_your_api_key"
+base-url: "https://bloxcloud.world"
+server-id: "MC_SURVIVAL_1"
+region: "EU-West"
+default-arena-server: "arena-1"</code></pre>
+                </div>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-cyan-300 overflow-x-auto"><code>// 1. Remote Kill-Switch: disable a bugged or duped item instantly without restarting
+if (BloxCloudPlugin.get().getFlag("disable_enderpearl", false)) {
+    player.sendMessage("§cEnder pearls are temporarily disabled by network admins.");
+    event.setCancelled(true);
+}
+
+// 2. Cross-Server Ranked ELO Matchmaking (automatically transfers player across Velocity/BungeeCord)
+BloxCloudPlugin.get().joinQueue(player, "Ranked_1v1", 1350);
+
+// 3. Cross-Server Global Auction House with atomic anti-dupe lock
+BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);
+boolean purchased = BloxCloudPlugin.get().buyGlobalItem(buyer, "list_7d477c1b");</code></pre>
                 </div>
             </section>
 

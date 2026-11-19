@@ -67,8 +67,9 @@ app.get(['/legal', '/terms', '/privacy'], (req, res) => {
     res.sendFile('legal.html', { root: dashboardPath });
 });
 
-// Path to Luau SDK
+// Path to Luau & Minecraft SDKs
 const sdkPath = path.resolve(__dirname, '../../../sdk/BloxCloud.luau');
+const minecraftSdkPath = path.resolve(__dirname, '../../../sdk/BloxCloudPlugin.java');
 
 // Auth middleware helper
 function getAuthUser(req) {
@@ -418,6 +419,23 @@ app.get('/api/v1/sdk/download', (req, res) => {
         res.download(sdkPath, 'BloxCloud.luau');
     } catch (err) {
         res.status(500).json({ error: 'Failed to download SDK' });
+    }
+});
+
+app.get('/api/v1/sdk/minecraft/code', (req, res) => {
+    try {
+        const code = fs.readFileSync(minecraftSdkPath, 'utf8');
+        res.json({ code });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to read Minecraft plugin source' });
+    }
+});
+
+app.get('/api/v1/sdk/minecraft/download', (req, res) => {
+    try {
+        res.download(minecraftSdkPath, 'BloxCloudPlugin.java');
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to download Minecraft plugin source' });
     }
 });
 

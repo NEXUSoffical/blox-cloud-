@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BloxCloud | The Roblox Developer Platform</title>
-    <meta name="description" content="Enterprise Backend-as-a-Service & LiveOps platform for Roblox studios. Cross-server ELO matchmaking, zero-downtime remote kill-switches, anti-dupe auction house, and live server telemetry.">
+    <title>BloxCloud | The Roblox &amp; Minecraft Developer Platform</title>
+    <meta name="description" content="Enterprise Backend-as-a-Service & LiveOps platform for Roblox studios & Minecraft server networks. Cross-server ELO matchmaking, zero-downtime remote kill-switches, anti-dupe auction house, and live server FPS/TPS telemetry.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://bloxcloud.world/">
-    <meta property="og:title" content="BloxCloud | Backend-as-a-Service & LiveOps for Roblox Studios">
-    <meta property="og:description" content="Cross-server ELO matchmaking, instant remote kill-switches, anti-dupe global trading, and live fleet telemetry for Roblox games. Plug in the 1-file Luau SDK in 60 seconds.">
+    <meta property="og:title" content="BloxCloud | BaaS & LiveOps for Roblox Studios & Minecraft Servers">
+    <meta property="og:description" content="Cross-server ELO matchmaking, instant remote kill-switches, anti-dupe global trading, and live fleet FPS/TPS telemetry for Roblox games and Minecraft Paper/Spigot/Velocity networks.">
     <meta property="og:image" content="https://bloxcloud.world/banner.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@Bloxcloud1999">
     <meta name="twitter:creator" content="@Bloxcloud1999">
-    <meta name="twitter:title" content="BloxCloud | Backend-as-a-Service & LiveOps for Roblox Studios">
-    <meta name="twitter:description" content="Cross-server ELO matchmaking, instant remote kill-switches, anti-dupe global trading, and live fleet telemetry for Roblox games.">
+    <meta name="twitter:title" content="BloxCloud | BaaS & LiveOps for Roblox Studios & Minecraft Servers">
+    <meta name="twitter:description" content="Cross-server ELO matchmaking, instant remote kill-switches, anti-dupe global trading, and live fleet FPS/TPS telemetry for Roblox & Minecraft.">
     <meta name="twitter:image" content="https://bloxcloud.world/banner.png">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/logo-512.png">
@@ -97,7 +97,7 @@
             <!-- Get SDK Button -->
             <button onclick="openSdkModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-2 shadow-lg shadow-blue-600/30 border border-blue-400/40 transition-all active:scale-95">
                 <i class="fa-solid fa-code text-xs"></i>
-                <span>Roblox SDK</span>
+                <span>Roblox &amp; Minecraft SDK</span>
             </button>
 
             <!-- Billing & Account Button -->
@@ -420,7 +420,7 @@
                     <i class="fa-solid fa-cube text-3xl"></i>
                 </div>
                 <h3 class="font-extrabold text-white text-xl tracking-tight bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent">BloxCloud Developer Access</h3>
-                <p class="text-xs text-blue-200">Backend-as-a-Service &amp; LiveOps for Roblox Game Studios.</p>
+                <p class="text-xs text-blue-200">Backend-as-a-Service &amp; LiveOps for Roblox Studios &amp; Minecraft Networks.</p>
                 <div class="grid grid-cols-2 gap-1.5 pt-2 text-[10px] text-left font-semibold text-blue-100">
                     <div class="px-2.5 py-1.5 rounded-lg bg-[#071129] border border-blue-500/30 flex items-center space-x-1.5">
                         <i class="fa-solid fa-trophy text-cyan-400"></i>
@@ -684,7 +684,7 @@
         </div>
     </div>
 
-    <!-- Modal: Get SDK / Installation Guide -->
+    <!-- Modal: Get SDK / Installation Guide (Roblox & Minecraft) -->
     <div id="sdkModal" class="hidden fixed inset-0 bg-[#020b1f]/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
         <div class="glass-panel bg-[#0b1739]/95 border border-blue-400/50 w-full max-w-2xl rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl shadow-blue-600/30">
             <div class="flex items-center justify-between border-b border-blue-500/30 pb-3">
@@ -693,14 +693,27 @@
                         <i class="fa-solid fa-download"></i>
                     </div>
                     <div>
-                        <h3 class="font-extrabold text-white text-base">Add BloxCloud to Your Roblox Game</h3>
-                        <p class="text-xs text-blue-200">Follow these 3 quick steps to connect your game.</p>
+                        <h3 class="font-extrabold text-white text-base">Connect Your Game Server to BloxCloud</h3>
+                        <p class="text-xs text-blue-200">Choose your game engine below to connect in 60 seconds.</p>
                     </div>
                 </div>
                 <button onclick="closeSdkModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
-            <div class="space-y-4 text-xs">
+            <!-- Engine Switcher Tabs -->
+            <div class="flex p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs">
+                <button id="tabSdkRobloxBtn" onclick="switchSdkEngine('roblox')" class="flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-gamepad"></i>
+                    <span>Roblox (Luau SDK)</span>
+                </button>
+                <button id="tabSdkMinecraftBtn" onclick="switchSdkEngine('minecraft')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span>Minecraft (Paper / Spigot / Velocity)</span>
+                </button>
+            </div>
+
+            <!-- Panel 1: Roblox SDK -->
+            <div id="sdkPanelRoblox" class="space-y-4 text-xs">
                 <!-- Step 1 -->
                 <div class="p-3.5 rounded-xl bg-[#071129] border border-blue-500/30 space-y-1.5">
                     <div class="font-bold text-cyan-300 flex items-center space-x-2">
@@ -744,6 +757,49 @@
                     </p>
                     <div class="pl-6">
                         <pre class="bg-[#0d1a3a]/90 p-3 rounded-lg border border-blue-500/25 font-mono text-[11px] text-slate-300 overflow-x-auto"><code id="modalScriptCode">-- Loading snippet...</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2: Minecraft Plugin SDK (Paper / Spigot / Velocity) -->
+            <div id="sdkPanelMinecraft" class="hidden space-y-4 text-xs">
+                <div class="p-3.5 rounded-xl bg-[#071129] border border-emerald-500/30 space-y-2.5">
+                    <div class="font-bold text-emerald-300 flex items-center space-x-2">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center text-[11px] font-bold">1</span>
+                        <span>Download the BloxCloud Minecraft Plugin (Paper / Spigot / Purpur)</span>
+                    </div>
+                    <p class="text-blue-200 pl-7">
+                        Add <code class="text-emerald-300 bg-blue-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30 font-mono">BloxCloudPlugin.java</code> to your server plugin or download the standalone source (uses standard Java 17+ <code class="font-mono text-cyan-300">HttpClient</code> with zero external dependencies).
+                    </p>
+                    <div class="flex items-center space-x-3 pl-7">
+                        <a href="/api/v1/sdk/minecraft/download" download class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold flex items-center space-x-2 transition-all shadow-md shadow-emerald-600/30 border border-emerald-400/30">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Download BloxCloudPlugin.java</span>
+                        </a>
+                        <button onclick="copyMinecraftSdkCode()" class="px-3.5 py-1.5 rounded-lg bg-blue-950/70 hover:bg-slate-700 border border-blue-500/30 text-slate-200 font-semibold flex items-center space-x-1.5 transition-all">
+                            <i class="fa-regular fa-copy"></i>
+                            <span id="copyMcSdkBtnText">Copy Full Java Plugin Code</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2">
+                    <div class="font-bold text-cyan-300 flex items-center space-x-2">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 flex items-center justify-center text-[11px] font-bold">2</span>
+                        <span>Paste Your API Key in plugins/BloxCloud/config.yml</span>
+                    </div>
+                    <div class="pl-7">
+                        <pre class="bg-[#0d1a3a]/90 p-3 rounded-lg border border-blue-500/25 font-mono text-[11px] text-emerald-300 overflow-x-auto"><code id="modalMinecraftConfigCode"># Loading config.yml...</code></pre>
+                    </div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-[#081229]/90 border border-blue-500/25 space-y-2">
+                    <div class="font-bold text-cyan-400 flex items-center space-x-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px]">3</span>
+                        <span>Use Kill-Switches, ELO Matchmaking &amp; Global Auction House in Java</span>
+                    </div>
+                    <div class="pl-6">
+                        <pre class="bg-[#0d1a3a]/90 p-3 rounded-lg border border-blue-500/25 font-mono text-[11px] text-slate-300 overflow-x-auto"><code id="modalMinecraftJavaSnippet">// Loading Java usage...</code></pre>
                     </div>
                 </div>
             </div>
@@ -916,6 +972,31 @@ BloxCloud.LiveOps:OnConfigChange("your_flag_key", function(enabled)
 end)`;
             document.getElementById('codeSnippetDisplay').innerText = snippet;
             document.getElementById('modalScriptCode').innerText = snippet;
+
+            const mcConfig =
+`# plugins/BloxCloud/config.yml (Paper / Spigot / Purpur / Velocity)
+api-key: "${currentUser.apiKey}"
+base-url: "${liveOrigin}"
+server-id: "MC_SURVIVAL_1"
+region: "EU-West"
+default-arena-server: "arena-1"`;
+
+            const mcJava =
+`// 1. Check remote kill-switches in real time
+if (BloxCloudPlugin.get().getFlag("disable_enderpearl", false)) {
+    event.setCancelled(true);
+}
+
+// 2. Queue player into Cross-Server Ranked 1v1 (auto-transfers via Velocity/BungeeCord)
+BloxCloudPlugin.get().joinQueue(player, "Ranked_1v1", 1350);
+
+// 3. Cross-server Auction House with atomic anti-dupe lock
+BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
+
+            const mcCfgEl = document.getElementById('modalMinecraftConfigCode');
+            const mcJavaEl = document.getElementById('modalMinecraftJavaSnippet');
+            if (mcCfgEl) mcCfgEl.innerText = mcConfig;
+            if (mcJavaEl) mcJavaEl.innerText = mcJava;
         }
 
         function switchAuthTab(tab) {
@@ -1209,7 +1290,7 @@ end)`;
                     } catch (e) { /* retry */ }
                     await new Promise(r => setTimeout(r, 3000));
                 }
-                alert('Thanks for your purchase! Your payment is still being confirmed by Lemon Squeezy. Your plan will update automatically within a few minutes. Refresh the page if it does not.');
+                alert('Thanks for your purchase! Your payment is still being confirmed by Polar.sh. Your plan will update automatically within a few minutes. Refresh the page if it does not.');
             } else if (status === 'cancelled') {
                 alert('Checkout was cancelled. You have not been charged.');
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -1235,13 +1316,16 @@ end)`;
                         sGrid.innerHTML = data.telemetry.servers.map(s => `
                             <div class="p-3.5 rounded-xl bg-[#0d1a3a]/90 border ${s.health === 'DEGRADED' ? 'border-amber-500/50 glow-amber' : 'border-blue-500/25'} space-y-2">
                                 <div class="flex items-center justify-between">
-                                    <span class="font-mono text-cyan-400 text-xs font-bold truncate max-w-[150px]">${esc(s.jobId)}</span>
+                                    <div class="flex items-center space-x-1.5 truncate max-w-[165px]">
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${s.engine === 'MINECRAFT' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-cyan-300 border border-blue-500/30'}">${s.engine === 'MINECRAFT' ? 'MC' : 'RBX'}</span>
+                                        <span class="font-mono text-cyan-400 text-xs font-bold truncate">${esc(s.jobId)}</span>
+                                    </div>
                                     <span class="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${s.health === 'DEGRADED' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${esc(s.health)}</span>
                                 </div>
                                 <div class="grid grid-cols-3 gap-2 text-center text-[11px] pt-1">
                                     <div class="bg-[#081229]/90 p-1.5 rounded-lg border border-blue-500/25/80">
-                                        <div class="text-slate-400 text-[10px]">FPS</div>
-                                        <div class="font-bold text-white">${esc(s.serverFps)}</div>
+                                        <div class="text-slate-400 text-[10px]">${s.engine === 'MINECRAFT' ? 'TPS' : 'FPS'}</div>
+                                        <div class="font-bold text-white">${esc(s.engine === 'MINECRAFT' && s.serverTps != null ? s.serverTps : s.serverFps)}</div>
                                     </div>
                                     <div class="bg-[#081229]/90 p-1.5 rounded-lg border border-blue-500/25/80">
                                         <div class="text-slate-400 text-[10px]">Memory</div>
@@ -1255,7 +1339,7 @@ end)`;
                             </div>
                         `).join('');
                     } else {
-                        sGrid.innerHTML = `<div class="col-span-3 py-6 text-center text-slate-500 text-xs">No active game servers connected yet.<br>When your Roblox game connects via the SDK, live server instances with real-time FPS and Memory will appear here.</div>`;
+                        sGrid.innerHTML = `<div class="col-span-3 py-6 text-center text-slate-500 text-xs">No active game servers connected yet.<br>When your Roblox game or Minecraft server connects via the SDK, live instances with real-time FPS/TPS and Memory will appear here.</div>`;
                     }
 
                     // Render Error Feed
@@ -1422,6 +1506,25 @@ end)`;
         function openSdkModal() { document.getElementById('sdkModal').classList.remove('hidden'); }
         function closeSdkModal() { document.getElementById('sdkModal').classList.add('hidden'); }
 
+        function switchSdkEngine(engine) {
+            const rPanel = document.getElementById('sdkPanelRoblox');
+            const mPanel = document.getElementById('sdkPanelMinecraft');
+            const rBtn = document.getElementById('tabSdkRobloxBtn');
+            const mBtn = document.getElementById('tabSdkMinecraftBtn');
+
+            if (engine === 'minecraft') {
+                rPanel.classList.add('hidden');
+                mPanel.classList.remove('hidden');
+                mBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center space-x-1.5';
+                rBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5';
+            } else {
+                mPanel.classList.add('hidden');
+                rPanel.classList.remove('hidden');
+                rBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5';
+                mBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5';
+            }
+        }
+
         async function copyFullSdkCode() {
             try {
                 const res = await fetch(`${API}/sdk/code`);
@@ -1432,6 +1535,19 @@ end)`;
                 setTimeout(() => { btn.innerText = 'Copy Full Luau Code'; }, 2500);
             } catch (e) {
                 alert("Failed to copy code: " + e.message);
+            }
+        }
+
+        async function copyMinecraftSdkCode() {
+            try {
+                const res = await fetch(`${API}/sdk/minecraft/code`);
+                const data = await res.json();
+                navigator.clipboard.writeText(data.code);
+                const btn = document.getElementById('copyMcSdkBtnText');
+                btn.innerText = 'Copied to Clipboard!';
+                setTimeout(() => { btn.innerText = 'Copy Full Java Plugin Code'; }, 2500);
+            } catch (e) {
+                alert("Failed to copy Minecraft plugin code: " + e.message);
             }
         }
 
