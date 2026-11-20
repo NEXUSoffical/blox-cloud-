@@ -447,10 +447,18 @@ app.post('/api/v1/telemetry/heartbeat', requireGameKey, (req, res) => {
     const studioId = req.user.id;
     const plan = billing.getPlan(req.user.plan);
     const overview = telemetry.getOverview(studioId);
-    const isExistingServer = overview.servers.some(s => s.jobId === req.body.jobId);
-    if (!isExistingServer && plan.limits && overview.totalServers >= plan.limits.maxServers) {
+    const existingServer = overview.servers.find(s => s.jobId === req.body.jobId);
+    if (!existingServer && plan.limits && overview.totalServers >= plan.limits.maxServers) {
         return res.status(402).json({
-            error: `Plan limit reached: your ${plan.name} plan allows up to ${plan.limits.maxServers} concurrent live servers. Upgrade your plan for additional capacity.`,
+            error: `Plan limit reached: your ${plan.name} plan allows up to ${plan.limits.maxServers} concurrent live server nodes. Upgrade your plan for additional server capacity.`,
+            code: 'PLAN_LIMIT_REACHED',
+        });
+    }
+    const incomingPlayers = Number(req.body.playerCount) || 0;
+    const otherPlayers = overview.totalLivePlayers - (existingServer ? existingServer.playerCount : 0);
+    if (plan.limits && plan.limits.maxConcurrentPlayers && (otherPlayers + incomingPlayers) > plan.limits.maxConcurrentPlayers) {
+        return res.status(402).json({
+            error: `Plan limit reached: your ${plan.name} plan supports up to ${plan.limits.maxConcurrentPlayers} concurrent online players. Upgrade your plan for higher player capacity.`,
             code: 'PLAN_LIMIT_REACHED',
         });
     }
