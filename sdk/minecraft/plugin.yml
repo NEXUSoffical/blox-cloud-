@@ -1,0 +1,7 @@
+name: BloxCloud
+version: 1.0.0
+main: world.bloxcloud.plugin.BloxCloudPlugin
+api-version: '1.20'
+author: BloxCloud
+website: https://bloxcloud.world
+description: Real-time TPS Telemetry, LiveOps Kill-Switches, Cross-Server ELO Matchmaking & Anti-Dupe Auction House.

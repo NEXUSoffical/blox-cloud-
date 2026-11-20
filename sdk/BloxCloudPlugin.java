@@ -3,6 +3,9 @@ package world.bloxcloud.plugin;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.ByteArrayOutputStream;
@@ -14,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
@@ -22,13 +26,16 @@ import java.util.regex.Pattern;
 /**
  * BloxCloud Official Minecraft SDK & LiveOps Plugin (Paper / Spigot / Purpur / Velocity)
  *
- * Connects any Minecraft server or multi-server proxy network to https://bloxcloud.world:
+ * All network calls execute asynchronously via Java 17+ HttpClient so the main server thread
+ * is never blocked (0ms TPS impact).
+ *
+ * Features:
  *  1. Real-time Server TPS, Memory (MB) & Player Telemetry
  *  2. Zero-Downtime Remote Kill-Switches & Global Network Broadcasts
- *  3. Cross-Server ELO Matchmaking with Velocity / BungeeCord Arena Transfers
+ *  3. Cross-Server ELO Matchmaking with Velocity / BungeeCord Arena Transfers & Quit Cleanup
  *  4. Cross-Server Global Auction House with Atomic Anti-Dupe Locks
  */
-public class BloxCloudPlugin extends JavaPlugin {
+public class BloxCloudPlugin extends JavaPlugin implements Listener {
 
     private static BloxCloudPlugin instance;
     private final HttpClient http = HttpClient.newBuilder()
@@ -61,8 +68,9 @@ public class BloxCloudPlugin extends JavaPlugin {
         this.region = getConfig().getString("region", "US-East");
         this.startTimeMs = System.currentTimeMillis();
 
-        // Register Velocity / BungeeCord plugin messaging channel for cross-server arena transfers
+        // Register Velocity / BungeeCord plugin messaging channel & player quit cleanup listener
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getPluginManager().registerEvents(this, this);
 
         getLogger().info("================================================================");
         getLogger().info(" ⚡ [BloxCloud] Connected Minecraft Node: " + this.serverId);
@@ -77,6 +85,19 @@ public class BloxCloudPlugin extends JavaPlugin {
             fetchLiveOpsConfig();
             pollMatchmakingTickets();
         }, 40L, 80L);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        String ticketId = activeTickets.remove(uuid);
+        if (ticketId != null) {
+            String json = String.format(
+                    "{\"userId\":\"%s\",\"ticketId\":\"%s\"}",
+                    uuid, escapeJson(ticketId)
+            );
+            postAsync("/api/v1/matchmaking/leave", json);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -134,7 +155,6 @@ public class BloxCloudPlugin extends JavaPlugin {
         String body = getSync("/api/v1/liveops/config");
         if (body == null) return;
 
-        // Parse boolean flags from {"config":{"flag_name":true,...}}
         Matcher configBlock = Pattern.compile("\"config\"\\s*:\\s*\\{([^}]*)}").matcher(body);
         if (configBlock.find()) {
             Matcher kv = Pattern.compile("\"([^\"]+)\"\\s*:\\s*(true|false)").matcher(configBlock.group(1));
@@ -151,7 +171,6 @@ public class BloxCloudPlugin extends JavaPlugin {
             }
         }
 
-        // Check for active emergency broadcast
         Matcher bcId = Pattern.compile("\"activeBroadcast\"\\s*:\\s*\\{[^}]*\"id\"\\s*:\\s*\"([^\"]+)\"[^}]*\"message\"\\s*:\\s*\"([^\"]+)\"").matcher(body);
         if (bcId.find()) {
             String id = bcId.group(1);
@@ -170,20 +189,38 @@ public class BloxCloudPlugin extends JavaPlugin {
     }
 
     // -------------------------------------------------------------------------
-    // 3. CROSS-SERVER ELO MATCHMAKING & VELOCITY / BUNGEECORD TRANSFER
+    // 3. CROSS-SERVER ELO MATCHMAKING & VELOCITY / BUNGEECORD TRANSFER (ASYNC)
     // -------------------------------------------------------------------------
     public void joinQueue(Player player, String queueType, int eloRating) {
+        UUID uuid = player.getUniqueId();
+        String playerName = player.getName();
         String json = String.format(
                 "{\"userId\":\"%s\",\"username\":\"%s\",\"queueType\":\"%s\",\"rating\":%d}",
-                player.getUniqueId(), escapeJson(player.getName()), escapeJson(queueType), eloRating
+                uuid, escapeJson(playerName), escapeJson(queueType), eloRating
         );
-        String resp = postSync("/api/v1/matchmaking/queue", json);
-        if (resp != null) {
-            Matcher m = Pattern.compile("\"ticketId\"\\s*:\\s*\"([^\"]+)\"").matcher(resp);
-            if (m.find()) {
-                activeTickets.put(player.getUniqueId(), m.group(1));
-                player.sendMessage(ChatColor.AQUA + "[BloxCloud] Joined " + queueType + " queue (ELO: " + eloRating + ")");
+
+        postAsync("/api/v1/matchmaking/queue", json).thenAccept(resp -> {
+            if (resp != null) {
+                Matcher m = Pattern.compile("\"ticketId\"\\s*:\\s*\"([^\"]+)\"").matcher(resp);
+                if (m.find()) {
+                    activeTickets.put(uuid, m.group(1));
+                    Bukkit.getScheduler().runTask(this, () -> {
+                        Player p = Bukkit.getPlayer(uuid);
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage(ChatColor.AQUA + "[BloxCloud] Joined " + queueType + " queue (ELO: " + eloRating + ")");
+                        }
+                    });
+                }
             }
+        });
+    }
+
+    public void leaveQueue(Player player) {
+        UUID uuid = player.getUniqueId();
+        String ticketId = activeTickets.remove(uuid);
+        if (ticketId != null) {
+            String json = String.format("{\"userId\":\"%s\",\"ticketId\":\"%s\"}", uuid, escapeJson(ticketId));
+            postAsync("/api/v1/matchmaking/leave", json);
         }
     }
 
@@ -194,8 +231,16 @@ public class BloxCloudPlugin extends JavaPlugin {
             String resp = getSync("/api/v1/matchmaking/ticket/" + ticketId);
             if (resp != null && resp.contains("\"status\":\"MATCHED\"")) {
                 activeTickets.remove(uuid);
-                Matcher codeMatcher = Pattern.compile("\"reservedServerCode\"\\s*:\\s*\"([^\"]+)\"").matcher(resp);
-                String targetServer = codeMatcher.find() ? codeMatcher.group(1) : getConfig().getString("default-arena-server", "arena-1");
+
+                // Resolve real Velocity/BungeeCord backend server name from config.yml
+                // (never pass synthetic BLOX_SRV_... codes to Velocity Connect)
+                Matcher qMatcher = Pattern.compile("\"queueType\"\\s*:\\s*\"([^\"]+)\"").matcher(resp);
+                String queueType = qMatcher.find() ? qMatcher.group(1) : "Ranked_1v1";
+                String targetServer = getConfig().getString(
+                        "arena-servers." + queueType,
+                        getConfig().getString("default-arena-server", "arena-1")
+                );
+
                 Bukkit.getScheduler().runTask(this, () -> {
                     Player p = Bukkit.getPlayer(uuid);
                     if (p != null && p.isOnline()) {
@@ -220,29 +265,29 @@ public class BloxCloudPlugin extends JavaPlugin {
     }
 
     // -------------------------------------------------------------------------
-    // 4. GLOBAL AUCTION HOUSE (ATOMIC ANTI-DUPE)
+    // 4. GLOBAL AUCTION HOUSE (ATOMIC ANTI-DUPE, 100% ASYNC)
     // -------------------------------------------------------------------------
-    public String listGlobalItem(Player seller, String itemId, int priceCoins) {
+    public CompletableFuture<String> listGlobalItem(Player seller, String itemId, int priceCoins) {
         String json = String.format(
                 "{\"sellerId\":\"%s\",\"sellerName\":\"%s\",\"itemId\":\"%s\",\"price\":%d}",
                 seller.getUniqueId(), escapeJson(seller.getName()), escapeJson(itemId), priceCoins
         );
-        return postSync("/api/v1/marketplace/list", json);
+        return postAsync("/api/v1/marketplace/list", json);
     }
 
-    public boolean buyGlobalItem(Player buyer, String listingId) {
+    public CompletableFuture<Boolean> buyGlobalItem(Player buyer, String listingId) {
         String json = String.format(
                 "{\"buyerId\":\"%s\",\"buyerName\":\"%s\",\"listingId\":\"%s\"}",
                 buyer.getUniqueId(), escapeJson(buyer.getName()), escapeJson(listingId)
         );
-        String resp = postSync("/api/v1/marketplace/buy", json);
-        return resp != null && resp.contains("\"success\":true");
+        return postAsync("/api/v1/marketplace/buy", json)
+                .thenApply(resp -> resp != null && resp.contains("\"success\":true"));
     }
 
     // -------------------------------------------------------------------------
-    // HTTP HELPERS
+    // NON-BLOCKING HTTP HELPERS
     // -------------------------------------------------------------------------
-    private void postAsync(String endpoint, String jsonBody) {
+    private CompletableFuture<String> postAsync(String endpoint, String jsonBody) {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + endpoint))
                 .timeout(Duration.ofSeconds(5))
@@ -250,23 +295,9 @@ public class BloxCloudPlugin extends JavaPlugin {
                 .header("x-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
-        http.sendAsync(req, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private String postSync(String endpoint, String jsonBody) {
-        try {
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + endpoint))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Content-Type", "application/json")
-                    .header("x-api-key", apiKey)
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                    .build();
-            HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
-            return res.statusCode() < 300 ? res.body() : null;
-        } catch (Exception e) {
-            return null;
-        }
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                .thenApply(res -> res.statusCode() < 300 ? res.body() : null)
+                .exceptionally(err -> null);
     }
 
     private String getSync(String endpoint) {

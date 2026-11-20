@@ -383,7 +383,7 @@ app.post('/api/v1/billing/subscribe', (req, res) => {
 
     const { planId } = req.body;
     if (planId !== 'FREE') {
-        return res.status(403).json({ success: false, error: 'Paid plans can only be activated through Lemon Squeezy checkout.' });
+        return res.status(403).json({ success: false, error: 'Paid plans can only be activated through Polar.sh checkout.' });
     }
     const subResult = billing.createSubscription(user, 'FREE', 'FREE_TIER');
     if (!subResult.success) {

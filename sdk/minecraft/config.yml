@@ -1,0 +1,12 @@
+# BloxCloud Minecraft Plugin Configuration (Paper / Spigot / Purpur / Velocity)
+api-key: "YOUR_API_KEY"
+base-url: "https://bloxcloud.world"
+server-id: "MC_SURVIVAL_1"
+region: "EU-West"
+
+# Velocity / BungeeCord backend server names for matched ranked players
+default-arena-server: "arena-1"
+arena-servers:
+  Ranked_1v1: "arena-1v1"
+  Ranked_2v2: "arena-2v2"
+  Ranked_3v3: "arena-3v3"
