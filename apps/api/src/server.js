@@ -18,6 +18,16 @@ const liveops = require('./liveops');
 const marketplace = require('./marketplace');
 const alerts = require('./alerts');
 const db = require('./db');
+const robloxGenerator = require('./robloxGenerator');
+
+// In-memory cache for AI generated Roblox games (expires after 1 hour)
+const generatedGamesCache = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of generatedGamesCache.entries()) {
+        if (v.expiresAt < now) generatedGamesCache.delete(k);
+    }
+}, 5 * 60 * 1000).unref();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -867,6 +877,66 @@ app.get('/api/v1/marketplace/listings', requirePublicReadOrServerAuth, (req, res
 app.get('/api/v1/marketplace/ledger', requireSession, (req, res) => {
     const studioId = req.user.id;
     res.json({ ledger: marketplace.getLedger(studioId) });
+});
+
+// -----------------------------------------------------------------------------
+// AI GAME STUDIO GENERATOR (ROBLOX)
+// -----------------------------------------------------------------------------
+app.post('/api/v1/generator/roblox/generate', (req, res) => {
+    try {
+        const { title, genre, theme, difficulty, stagesCount, monetization } = req.body || {};
+        
+        // Find user if authenticated, else use demo
+        const authHeader = req.headers['authorization'];
+        let apiKey = 'bc_live_demo';
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.substring(7);
+            const user = auth.getUserByToken(token);
+            if (user) apiKey = user.apiKey;
+        }
+
+        const game = robloxGenerator.compileRobloxPlace({
+            title: title || 'Cyberpunk Tower Obby',
+            genre: genre || 'obby',
+            theme: theme || 'cyberpunk',
+            difficulty: difficulty || 'medium',
+            stagesCount: Math.min(Math.max(Number(stagesCount) || 25, 5), 100),
+            apiKey,
+            monetization: monetization || {}
+        });
+
+        const gameId = crypto.randomBytes(16).toString('hex');
+        generatedGamesCache.set(gameId, {
+            ...game,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 60 * 60 * 1000 // 1 hour
+        });
+
+        res.json({
+            success: true,
+            gameId,
+            title: game.title,
+            genre: game.genre,
+            theme: game.theme,
+            fileSize: game.fileSize,
+            downloadUrl: `/api/v1/generator/roblox/download/${gameId}`
+        });
+    } catch (err) {
+        console.error('[BloxCloud Generator] Generation failed:', err);
+        res.status(500).json({ success: false, error: err.message || 'Game generation failed' });
+    }
+});
+
+app.get('/api/v1/generator/roblox/download/:id', (req, res) => {
+    const game = generatedGamesCache.get(req.params.id);
+    if (!game) {
+        return res.status(404).send('Generated game file not found or expired. Please generate a new one.');
+    }
+
+    const filename = `${game.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.rbxlx`;
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(game.xml);
 });
 
 // -----------------------------------------------------------------------------

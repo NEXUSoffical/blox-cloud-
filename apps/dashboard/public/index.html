@@ -100,6 +100,12 @@
                 <span id="wsStatus">LIVE SYNC ACTIVE</span>
             </div>
 
+            <!-- AI Game Studio Link -->
+            <button onclick="scrollToAiStudio()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 border border-cyan-400/50 text-cyan-200 hover:text-white text-xs font-bold flex items-center space-x-1.5 transition-all shadow-md shadow-cyan-500/10">
+                <i class="fa-solid fa-wand-magic-sparkles text-cyan-300 text-xs"></i>
+                <span>AI Game Studio</span>
+            </button>
+
             <!-- Documentation Link -->
             <a href="/docs" target="_blank" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
                 <i class="fa-solid fa-book-bookmark text-cyan-400 text-xs"></i>
@@ -222,6 +228,110 @@
                     <input id="discordWebhookInput" type="url" placeholder="https://discord.com/api/webhooks/..." class="flex-1 bg-[#071129] border border-blue-500/30 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-400">
                     <button onclick="saveDiscordWebhook()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all whitespace-nowrap">Save</button>
                     <button onclick="testDiscordWebhook()" class="px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-indigo-400/40 text-indigo-200 text-xs font-semibold transition-all whitespace-nowrap">Send Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Autonomous AI Game Studio Generator (Roblox) -->
+        <div id="aiStudioSection" class="glass-panel p-6 rounded-2xl border border-cyan-500/40 glow-blue space-y-6 bg-gradient-to-br from-[#0c1c44]/80 via-[#071330]/90 to-[#040a1c]">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-blue-500/20 pb-4">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 border border-cyan-400/40">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xl text-white"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-lg font-extrabold text-white tracking-tight">AI Game Studio Generator</h2>
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 uppercase tracking-wider">Turnkey Roblox .rbxlx</span>
+                        </div>
+                        <p class="text-xs text-blue-200 mt-0.5">Generate complete, playable 3D worlds, procedural maps, Luau scripts, and pre-wired BloxCloud datastores in 30 seconds.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-semibold text-blue-300">Included in BloxCloud Plans</span>
+                </div>
+            </div>
+
+            <!-- Generator Controls Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                <div>
+                    <label class="block text-blue-200 font-bold mb-1.5">Game Title</label>
+                    <input id="genGameTitle" type="text" value="Cyberpunk Laser Obby" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white font-medium focus:border-cyan-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-bold mb-1.5">Game Genre</label>
+                    <select id="genGameGenre" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white font-medium focus:border-cyan-400 outline-none">
+                        <option value="obby">Difficulty Obby / Platformer (High DevProduct RPM)</option>
+                        <option value="arena">Sci-Fi PvP Battle Arena (Classes &amp; Weapon Spawners)</option>
+                        <option value="simulator">Coin Clicker &amp; Rebirth Simulator</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-bold mb-1.5">3D Map Atmosphere &amp; Theme</label>
+                    <select id="genGameTheme" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white font-medium focus:border-cyan-400 outline-none">
+                        <option value="cyberpunk">Cyberpunk Neon (Dark Sky, Blue Laser Hazards)</option>
+                        <option value="lava">Volcanic Inferno (Basalt Slate, Molten Lava Bricks)</option>
+                        <option value="skyworld">Heavenly Skyworld (Cloud White, High Jump Pads)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-bold mb-1.5">Stages / Map Scale</label>
+                    <select id="genGameStages" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white font-medium focus:border-cyan-400 outline-none">
+                        <option value="15">15 Stages (Fast Casual Play)</option>
+                        <option value="25" selected>25 Stages (Standard High-Retention)</option>
+                        <option value="50">50 Stages (Mega Tower Difficulty)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Monetization Auto-Inject Settings -->
+            <div class="p-4 rounded-xl bg-blue-950/40 border border-blue-500/30 space-y-2.5 text-xs">
+                <div class="font-bold text-white flex items-center justify-between">
+                    <span class="flex items-center space-x-2">
+                        <i class="fa-solid fa-coins text-amber-400"></i>
+                        <span>Pre-Baked DevEx Monetization Prompts</span>
+                    </span>
+                    <span class="text-[11px] text-cyan-300 font-normal">Auto-injects MarketplaceService hooks into Luau scripts</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <label class="flex items-center space-x-2 text-blue-200 cursor-pointer">
+                        <input id="monetizeSkip" type="checkbox" checked class="w-4 h-4 rounded bg-[#071129] border-blue-500 text-cyan-500 focus:ring-0">
+                        <span>"Skip Stage" Prompt (15 Robux DevProduct)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-blue-200 cursor-pointer">
+                        <input id="monetizeSpeed" type="checkbox" checked class="w-4 h-4 rounded bg-[#071129] border-blue-500 text-cyan-500 focus:ring-0">
+                        <span>"2x Walk Speed" Gamepass (49 Robux)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-blue-200 cursor-pointer">
+                        <input id="monetizeVip" type="checkbox" checked class="w-4 h-4 rounded bg-[#071129] border-blue-500 text-cyan-500 focus:ring-0">
+                        <span>"VIP Lounge &amp; Chat Tag" (99 Robux)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Bar & Build Output -->
+            <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+                <div class="flex items-center space-x-3">
+                    <button id="btnGenerateGame" onclick="handleGenerateRobloxGame()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center space-x-2 shadow-xl shadow-cyan-500/30 border border-cyan-400/50 transition-all active:scale-95">
+                        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                        <span>Generate &amp; Compile Game</span>
+                    </button>
+                    <div id="genStatusText" class="text-xs text-blue-300 hidden">
+                        <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse mr-1.5"></span>
+                        <span id="genStatusMessage">Compiling 3D world geometry...</span>
+                    </div>
+                </div>
+
+                <!-- Instant Download Card (revealed after generation) -->
+                <div id="genDownloadCard" class="hidden flex items-center space-x-3 bg-emerald-950/40 border border-emerald-500/40 p-2.5 rounded-xl">
+                    <div class="text-right">
+                        <div id="genResultTitle" class="text-xs font-bold text-white">Cyberpunk_Laser_Obby.rbxlx</div>
+                        <div id="genResultSize" class="text-[10px] text-emerald-300 font-mono">104 KB • Ready for Roblox Studio</div>
+                    </div>
+                    <a id="genDownloadLink" href="#" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-1.5 transition-all shadow-md shadow-emerald-600/30">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Download .rbxlx</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -1922,6 +2032,81 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
             if (el) {
                 el.innerText = 'Copied!';
                 setTimeout(() => { el.innerText = 'Copy'; }, 2000);
+            }
+        }
+
+        function scrollToAiStudio() {
+            const el = document.getElementById('aiStudioSection');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function handleGenerateRobloxGame() {
+            const title = (document.getElementById('genGameTitle').value || 'Cyberpunk Laser Obby').trim();
+            const genre = document.getElementById('genGameGenre').value;
+            const theme = document.getElementById('genGameTheme').value;
+            const stagesCount = document.getElementById('genGameStages').value;
+            
+            const btn = document.getElementById('btnGenerateGame');
+            const statusDiv = document.getElementById('genStatusText');
+            const statusMsg = document.getElementById('genStatusMessage');
+            const downloadCard = document.getElementById('genDownloadCard');
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            statusDiv.classList.remove('hidden');
+            downloadCard.classList.add('hidden');
+
+            const steps = [
+                'Compiling 3D world geometry & skybox...',
+                'Generating procedural platforms & kill hazards...',
+                'Injecting BloxCloud telemetry & cloud datastores...',
+                'Assembling StarterGui HUD & monetization prompts...'
+            ];
+            let stepIdx = 0;
+            statusMsg.innerText = steps[0];
+            const interval = setInterval(() => {
+                stepIdx = (stepIdx + 1) % steps.length;
+                statusMsg.innerText = steps[stepIdx];
+            }, 600);
+
+            try {
+                const res = await fetch(`${API}/generator/roblox/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({
+                        title,
+                        genre,
+                        theme,
+                        stagesCount: Number(stagesCount),
+                        monetization: {
+                            skipLevel: document.getElementById('monetizeSkip').checked,
+                            doubleSpeed: document.getElementById('monetizeSpeed').checked,
+                            vip: document.getElementById('monetizeVip').checked
+                        }
+                    })
+                });
+                const data = await res.json();
+                clearInterval(interval);
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                statusDiv.classList.add('hidden');
+
+                if (!res.ok || !data.success) {
+                    alert('Generation error: ' + (data.error || 'Failed to generate game.'));
+                    return;
+                }
+
+                document.getElementById('genResultTitle').innerText = `${data.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.rbxlx`;
+                document.getElementById('genResultSize').innerText = `${Math.round(data.fileSize / 1024)} KB • Ready for Roblox Studio`;
+                const dlLink = document.getElementById('genDownloadLink');
+                dlLink.href = data.downloadUrl;
+                downloadCard.classList.remove('hidden');
+            } catch (err) {
+                clearInterval(interval);
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                statusDiv.classList.add('hidden');
+                alert('Connection error: ' + err.message);
             }
         }
 
