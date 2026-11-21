@@ -1047,11 +1047,11 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
             if (mcCfgEl) mcCfgEl.innerText = mcConfig;
             if (mcJavaEl) mcJavaEl.innerText = mcJava;
 
-            const webJs = `<script src="${origin}/sdk/web.js"><\/script>
+            const webJs = `<script src="${liveOrigin}/sdk/web.js"><\/script>
 <script>
   const cloud = new BloxCloud({
-    apiKey: "${key}",
-    baseUrl: "${origin}"
+    apiKey: "${currentUser.apiKey}",
+    baseUrl: "${liveOrigin}"
   });
 
   // Auto-detect Phantom (Solana), MetaMask (EVM), Telegram, or Guest ID
