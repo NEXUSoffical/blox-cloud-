@@ -150,27 +150,61 @@
             <button onclick="clearBroadcast()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded bg-blue-950/70/80 border border-blue-500/30">Dismiss</button>
         </div>
 
-        <!-- Project API Key & Connection Bar -->
-        <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-blue-500/30 glow-blue">
-            <div class="flex items-center space-x-3.5">
-                <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-300">
-                    <i class="fa-solid fa-key text-sm"></i>
-                </div>
-                <div>
-                    <div class="text-[11px] uppercase tracking-wider font-bold text-blue-300">Your Private Secret API Key</div>
-                    <div class="flex items-center space-x-2 mt-0.5">
-                        <span id="apiKeyDisplay" class="font-mono text-xs text-white bg-blue-950/80 px-2.5 py-1 rounded-lg border border-blue-500/30">Loading...</span>
-                        <button onclick="copyApiKey()" class="text-xs text-cyan-300 hover:text-white font-semibold flex items-center space-x-1 px-2 py-1 rounded bg-blue-600/20 border border-blue-500/30 transition-all">
-                            <i class="fa-regular fa-copy"></i>
-                            <span id="copyBtnText">Copy</span>
-                        </button>
+        <!-- Project API Keys & Discord SRE Alerts Bar -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 border border-blue-500/30 glow-blue">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-6">
+                    <div class="flex items-center space-x-3.5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-300">
+                            <i class="fa-solid fa-key text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="text-[11px] uppercase tracking-wider font-bold text-blue-300">Secret Server Key (Roblox / MC / Node)</div>
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <span id="apiKeyDisplay" class="font-mono text-xs text-white bg-blue-950/80 px-2.5 py-1 rounded-lg border border-blue-500/30">Loading...</span>
+                                <button onclick="copyApiKey()" class="text-xs text-cyan-300 hover:text-white font-semibold flex items-center space-x-1 px-2 py-1 rounded bg-blue-600/20 border border-blue-500/30 transition-all">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span id="copyBtnText">Copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                            <i class="fa-solid fa-globe text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="text-[11px] uppercase tracking-wider font-bold text-purple-300">Public Client Key (Web / Web3 Browser)</div>
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <span id="publicKeyDisplay" class="font-mono text-xs text-purple-200 bg-blue-950/80 px-2.5 py-1 rounded-lg border border-purple-500/30">Loading...</span>
+                                <button onclick="copyPublicKey()" class="text-xs text-purple-300 hover:text-white font-semibold flex items-center space-x-1 px-2 py-1 rounded bg-purple-600/20 border border-purple-500/30 transition-all">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span id="copyPubBtnText">Copy</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="regenerateApiKey()" class="text-xs px-3.5 py-1.5 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-blue-200 transition-colors">
+                        Regenerate Key
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center space-x-3">
-                <button onclick="regenerateApiKey()" class="text-xs px-3.5 py-1.5 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-blue-200 transition-colors">
-                    Regenerate Key
-                </button>
+
+            <!-- Discord SRE & Anti-Dupe Webhook Bar -->
+            <div class="pt-3 border-t border-blue-500/20 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center space-x-2.5 text-xs">
+                    <i class="fa-brands fa-discord text-indigo-400 text-base"></i>
+                    <span class="font-bold text-white">Discord SRE &amp; Exploit Alerts:</span>
+                    <span id="discordStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-semibold uppercase">Not Connected</span>
+                </div>
+                <div class="flex flex-1 max-w-xl items-center gap-2">
+                    <input id="discordWebhookInput" type="url" placeholder="https://discord.com/api/webhooks/..." class="flex-1 bg-[#071129] border border-blue-500/30 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-400">
+                    <button onclick="saveDiscordWebhook()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all whitespace-nowrap">Save</button>
+                    <button onclick="testDiscordWebhook()" class="px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-indigo-400/40 text-indigo-200 text-xs font-semibold transition-all whitespace-nowrap">Send Test</button>
+                </div>
             </div>
         </div>
 
@@ -1013,6 +1047,20 @@
 
             // Key display
             document.getElementById('apiKeyDisplay').innerText = currentUser.apiKey;
+            const pubKeyEl = document.getElementById('publicKeyDisplay');
+            if (pubKeyEl) pubKeyEl.innerText = currentUser.publicKey || 'Generating...';
+            const discordInput = document.getElementById('discordWebhookInput');
+            const discordBadge = document.getElementById('discordStatusBadge');
+            if (discordInput) discordInput.value = currentUser.discordWebhookUrl || '';
+            if (discordBadge) {
+                if (currentUser.discordWebhookUrl) {
+                    discordBadge.innerText = 'Connected';
+                    discordBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-semibold uppercase';
+                } else {
+                    discordBadge.innerText = 'Not Connected';
+                    discordBadge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-semibold uppercase';
+                }
+            }
             const liveOrigin = window.location.origin;
             const snippet = 
 `local BloxCloud = require(game.ReplicatedStorage.BloxCloud).Init("${currentUser.apiKey}", {
@@ -1689,6 +1737,56 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
             const btn = document.getElementById('copyBtnText');
             btn.innerText = 'Copied!';
             setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+        }
+
+        function copyPublicKey() {
+            if (!currentUser || !currentUser.publicKey) return;
+            navigator.clipboard.writeText(currentUser.publicKey);
+            const btn = document.getElementById('copyPubBtnText');
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+        }
+
+        async function saveDiscordWebhook() {
+            const input = document.getElementById('discordWebhookInput');
+            const webhookUrl = (input ? input.value : '').trim();
+            try {
+                const res = await fetch(`${API}/settings/discord-webhook`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ webhookUrl }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(data.error || 'Failed to save Discord webhook.');
+                    return;
+                }
+                currentUser.discordWebhookUrl = data.discordWebhookUrl;
+                updateUserUI();
+                alert(data.discordWebhookUrl ? 'Discord SRE alerts connected!' : 'Discord SRE alerts disconnected.');
+            } catch (e) {
+                alert('Error saving Discord webhook: ' + e.message);
+            }
+        }
+
+        async function testDiscordWebhook() {
+            const input = document.getElementById('discordWebhookInput');
+            const webhookUrl = (input ? input.value : '').trim();
+            try {
+                const res = await fetch(`${API}/settings/discord-webhook/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ webhookUrl }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(data.error || 'Test alert failed.');
+                    return;
+                }
+                alert('Test alert sent! Check your Discord channel.');
+            } catch (e) {
+                alert('Error sending test alert: ' + e.message);
+            }
         }
 
         // Regenerate API key

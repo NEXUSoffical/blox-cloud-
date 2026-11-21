@@ -82,6 +82,7 @@
 
             this.web3 = {
                 detectPlayerIdentity: () => this._detectWeb3Identity(),
+                loginWithSolana: (provider) => this._loginWithSolana(provider),
             };
         }
 
@@ -419,6 +420,45 @@
                 guestId = 'guest_' + Math.random().toString(36).slice(2, 10);
             }
             return { provider: 'guest', userId: guestId, username: guestId };
+        }
+
+        /**
+         * Full cryptographic Solana / Phantom Ed25519 wallet authentication in one call.
+         * Requests a one-time nonce, signs with Phantom, verifies on BloxCloud, and stores playerToken.
+         */
+        async _loginWithSolana(walletProvider = null) {
+            const solana = walletProvider || (typeof window !== 'undefined' && window.solana);
+            if (!solana || typeof solana.signMessage !== 'function') {
+                throw new Error('[BloxCloud] Solana wallet (e.g. Phantom) with signMessage() not found.');
+            }
+            if (!solana.isConnected || !solana.publicKey) {
+                await solana.connect();
+            }
+            const walletAddress = solana.publicKey.toString();
+
+            // 1. Request 1-time nonce challenge from BloxCloud
+            const challenge = await this._request('POST', '/api/v1/client/web3-challenge', { walletAddress });
+
+            // 2. Ask player's wallet to sign the challenge message (Ed25519)
+            const msgBytes = new TextEncoder().encode(challenge.message);
+            const signed = await solana.signMessage(msgBytes, 'utf8');
+            const sigBytes = signed.signature ? new Uint8Array(signed.signature) : new Uint8Array(signed);
+
+            // Encode 64-byte signature to base64 (browser + Node safe)
+            let binary = '';
+            for (let i = 0; i < sigBytes.length; i++) binary += String.fromCharCode(sigBytes[i]);
+            const signatureBase64 = typeof btoa === 'function'
+                ? btoa(binary)
+                : Buffer.from(sigBytes).toString('base64');
+
+            // 3. Verify Ed25519 signature on BloxCloud & receive HMAC-signed playerToken
+            const verified = await this._request('POST', '/api/v1/client/web3-verify', {
+                walletAddress,
+                signatureBase64,
+                nonce: challenge.nonce,
+            });
+            this.playerToken = verified.playerToken;
+            return verified;
         }
     }
 

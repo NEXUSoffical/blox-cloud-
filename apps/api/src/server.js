@@ -16,6 +16,7 @@ const telemetry = require('./telemetry');
 const matchmaker = require('./matchmaker');
 const liveops = require('./liveops');
 const marketplace = require('./marketplace');
+const alerts = require('./alerts');
 const db = require('./db');
 
 const app = express();
@@ -478,6 +479,9 @@ app.post('/api/v1/telemetry/heartbeat', requireGameKey, (req, res) => {
     }
     const serverInfo = telemetry.recordHeartbeat(req.body, studioId);
     broadcastToDashboard('SERVER_HEARTBEAT', serverInfo, studioId);
+    if (serverInfo && serverInfo.health === 'DEGRADED') {
+        alerts.notifyServerDegraded(req.user, serverInfo);
+    }
     res.json({ success: true, server: serverInfo });
 });
 
@@ -485,6 +489,7 @@ app.post('/api/v1/telemetry/error', requireGameKey, (req, res) => {
     const studioId = req.user.id;
     const errorEntry = telemetry.recordError(req.body, studioId);
     broadcastToDashboard('SERVER_ERROR_RECORDED', errorEntry, studioId);
+    alerts.notifyScriptError(req.user, errorEntry);
     res.json({ success: true, error: errorEntry });
 });
 
@@ -492,12 +497,49 @@ app.post('/api/v1/telemetry/exploit-alert', requireGameKey, (req, res) => {
     const studioId = req.user.id;
     const alertEntry = telemetry.recordExploitAlert(req.body, studioId);
     broadcastToDashboard('EXPLOIT_ALERT_RECORDED', alertEntry, studioId);
+    alerts.notifyExploitAlert(req.user, alertEntry);
     res.json({ success: true, alert: alertEntry });
 });
 
 app.get('/api/v1/telemetry/overview', requireSession, (req, res) => {
     const studioId = req.user.id;
     res.json(telemetry.getOverview(studioId));
+});
+
+// -----------------------------------------------------------------------------
+// DISCORD SRE WEBHOOK ALERTS CONFIGURATION
+// -----------------------------------------------------------------------------
+
+app.post('/api/v1/settings/discord-webhook', requireSession, (req, res) => {
+    const url = String((req.body && req.body.webhookUrl) || '').trim();
+    if (url && !alerts.isValidDiscordWebhook(url)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid Discord Webhook URL. Must start with https://discord.com/api/webhooks/...',
+        });
+    }
+    auth.updateDiscordWebhook(req.user.id, url);
+    res.json({ success: true, discordWebhookUrl: url });
+});
+
+app.post('/api/v1/settings/discord-webhook/test', requireSession, async (req, res) => {
+    const url = String((req.body && req.body.webhookUrl) || req.user.discordWebhookUrl || '').trim();
+    if (!alerts.isValidDiscordWebhook(url)) {
+        return res.status(400).json({ success: false, error: 'Please save a valid Discord Webhook URL first.' });
+    }
+    const result = await alerts.sendDiscordEmbed(url, {
+        title: `BloxCloud SRE Connected (${req.user.studioName})`,
+        description: 'Your studio is now receiving real-time server degradation, runtime crash, and anti-dupe exploit alerts.',
+        color: 0x06b6d4,
+        fields: [
+            { name: 'Plan', value: req.user.plan, inline: true },
+            { name: 'Status', value: 'ACTIVE', inline: true },
+        ],
+    });
+    if (!result.sent) {
+        return res.status(502).json({ success: false, error: 'Discord rejected the webhook request. Double-check the URL.' });
+    }
+    res.json({ success: true });
 });
 
 // -----------------------------------------------------------------------------
@@ -580,6 +622,32 @@ app.post('/api/v1/client/session', (req, res) => {
     const cleanName = String(username || cleanId).trim().slice(0, 64);
     const playerToken = auth.signPlayerToken(studioUser, cleanId, cleanName);
     res.json({ success: true, playerToken, playerId: cleanId, username: cleanName });
+});
+
+// Cryptographic Solana / Phantom Ed25519 Wallet Login (Step 1: Get 1-time Nonce Challenge)
+app.post('/api/v1/client/web3-challenge', (req, res) => {
+    const pubKey = req.headers['x-public-key'];
+    const studioUser = auth.getUserByPublicKey(pubKey);
+    if (!studioUser) {
+        return res.status(401).json({ error: 'Invalid or missing x-public-key header.' });
+    }
+    const { walletAddress } = req.body || {};
+    const result = auth.createWeb3Challenge(studioUser.id, walletAddress);
+    if (!result.success) return res.status(400).json(result);
+    res.json(result);
+});
+
+// Cryptographic Solana / Phantom Ed25519 Wallet Login (Step 2: Verify Signature -> Mint Player Token)
+app.post('/api/v1/client/web3-verify', (req, res) => {
+    const pubKey = req.headers['x-public-key'];
+    const studioUser = auth.getUserByPublicKey(pubKey);
+    if (!studioUser) {
+        return res.status(401).json({ error: 'Invalid or missing x-public-key header.' });
+    }
+    const { walletAddress, signatureBase64, nonce } = req.body || {};
+    const result = auth.verifySolanaChallenge(studioUser, walletAddress, signatureBase64, nonce);
+    if (!result.success) return res.status(401).json(result);
+    res.json(result);
 });
 
 // Backend-verified player token minting (Web3 servers verify wallet signature first, then mint token)

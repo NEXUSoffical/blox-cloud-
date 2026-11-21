@@ -6,6 +6,43 @@
 const crypto = require('crypto');
 const db = require('./db');
 
+// Minimal Base58 decoder (Bitcoin/Solana alphabet) for zero-dependency Ed25519 wallet verification
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function decodeBase58(str) {
+    if (!str || typeof str !== 'string') return null;
+    const bytes = [0];
+    for (let i = 0; i < str.length; i++) {
+        const val = BASE58_ALPHABET.indexOf(str[i]);
+        if (val === -1) return null;
+        let carry = val;
+        for (let j = 0; j < bytes.length; j++) {
+            carry += bytes[j] * 58;
+            bytes[j] = carry & 0xff;
+            carry >>= 8;
+        }
+        while (carry > 0) {
+            bytes.push(carry & 0xff);
+            carry >>= 8;
+        }
+    }
+    for (let i = 0; i < str.length && str[i] === '1'; i++) {
+        bytes.push(0);
+    }
+    return Buffer.from(bytes.reverse());
+}
+
+// Ed25519 SubjectPublicKeyInfo (SPKI) DER prefix for a 32-byte raw public key
+const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
+
+// One-time Web3 login challenges (nonce -> { studioId, walletAddress, message, expiresAt })
+const web3Challenges = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of web3Challenges.entries()) {
+        if (v.expiresAt < now) web3Challenges.delete(k);
+    }
+}, 60 * 1000).unref();
+
 class AuthManager {
     _hashPassword(password, salt) {
         return new Promise((resolve, reject) => {
@@ -174,6 +211,86 @@ class AuthManager {
         return true;
     }
 
+    updateDiscordWebhook(userId, webhookUrl) {
+        const user = db.findUserById(userId);
+        if (!user) return false;
+        user.discordWebhookUrl = webhookUrl ? String(webhookUrl).trim() : '';
+        db.saveUser(user);
+        return true;
+    }
+
+    /**
+     * Create a one-time 5-minute nonce challenge for Solana/Phantom Ed25519 wallet authentication.
+     */
+    createWeb3Challenge(studioId, walletAddress) {
+        const cleanWallet = String(walletAddress || '').trim();
+        const rawPub = decodeBase58(cleanWallet);
+        if (!rawPub || rawPub.length !== 32) {
+            return { success: false, error: 'Invalid Solana wallet address (must be 32-byte Base58 public key).' };
+        }
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const expiresAt = Date.now() + 5 * 60 * 1000;
+        const message = `Sign in to BloxCloud\nStudio: ${studioId}\nWallet: ${cleanWallet}\nNonce: ${nonce}`;
+        web3Challenges.set(nonce, { studioId, walletAddress: cleanWallet, message, expiresAt });
+        return { success: true, nonce, message, expiresAt };
+    }
+
+    /**
+     * Cryptographically verify an Ed25519 signature from Phantom / Solana Wallet and consume the nonce.
+     */
+    verifySolanaChallenge(studioUser, walletAddress, signatureBase64, nonce) {
+        const challenge = web3Challenges.get(nonce);
+        if (!challenge) return { success: false, error: 'Invalid or expired challenge nonce.' };
+        if (challenge.expiresAt < Date.now()) {
+            web3Challenges.delete(nonce);
+            return { success: false, error: 'Challenge expired. Request a new nonce.' };
+        }
+        if (challenge.studioId !== studioUser.id || challenge.walletAddress !== String(walletAddress || '').trim()) {
+            return { success: false, error: 'Challenge does not match studio or wallet.' };
+        }
+
+        const rawPub = decodeBase58(challenge.walletAddress);
+        if (!rawPub || rawPub.length !== 32) {
+            return { success: false, error: 'Invalid wallet public key.' };
+        }
+
+        let sigBuf;
+        try {
+            sigBuf = Buffer.from(String(signatureBase64 || ''), 'base64');
+        } catch (e) {
+            return { success: false, error: 'Invalid base64 signature.' };
+        }
+        if (sigBuf.length !== 64) {
+            return { success: false, error: 'Invalid Ed25519 signature length (expected 64 bytes).' };
+        }
+
+        let isValid = false;
+        try {
+            const spkiDer = Buffer.concat([ED25519_SPKI_PREFIX, rawPub]);
+            const pubKeyObj = crypto.createPublicKey({ key: spkiDer, format: 'der', type: 'spki' });
+            isValid = crypto.verify(null, Buffer.from(challenge.message, 'utf8'), pubKeyObj, sigBuf);
+        } catch (e) {
+            return { success: false, error: 'Signature verification failed: ' + e.message };
+        }
+
+        if (!isValid) {
+            return { success: false, error: 'Cryptographic Ed25519 signature mismatch.' };
+        }
+
+        // One-time use: consume nonce to prevent replay attacks
+        web3Challenges.delete(nonce);
+
+        const shortName = `${challenge.walletAddress.slice(0, 4)}...${challenge.walletAddress.slice(-4)}`;
+        const playerToken = this.signPlayerToken(studioUser, challenge.walletAddress, shortName);
+        return {
+            success: true,
+            verified: true,
+            walletAddress: challenge.walletAddress,
+            username: shortName,
+            playerToken,
+        };
+    }
+
     _getSafeUser(user) {
         // Lazily backfill publicKey for existing studio accounts
         if (!user.publicKey) {
@@ -187,6 +304,7 @@ class AuthManager {
             studioName: user.studioName,
             apiKey: user.apiKey,
             publicKey: user.publicKey,
+            discordWebhookUrl: user.discordWebhookUrl || '',
             plan: user.plan,
             planStatus: user.planStatus,
             createdAt: user.createdAt,
