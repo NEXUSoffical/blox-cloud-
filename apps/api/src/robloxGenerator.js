@@ -43,7 +43,12 @@ function escapeXml(unsafe) {
 }
 
 function colorToUint8(r, g, b) {
-    return ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+    // Roblox Color3uint8 format: 0xFFRRGGBB (unsigned 32-bit int)
+    return (((0xFF << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)) >>> 0);
+}
+
+function buildColor3Xml(propName, r, g, b) {
+    return `<Color3 name="${propName}"><R>${(r / 255).toFixed(4)}</R><G>${(g / 255).toFixed(4)}</G><B>${(b / 255).toFixed(4)}</B></Color3>`;
 }
 
 // Themes defining colors and lighting atmospheres
@@ -445,10 +450,11 @@ Players.PlayerAdded:Connect(function(player)
             end)
         end
 
-        -- Respawn at Checkpoint
+        -- Respawn at Checkpoint (brief delay so Roblox default spawn does not overwrite CFrame)
         local currentStage = stage.Value
         local cp = workspace:FindFirstChild("Checkpoint_" .. currentStage)
         if cp and root then
+            task.wait(0.1)
             root.CFrame = cp.CFrame + Vector3.new(0, 3, 0)
         end
     end)
@@ -568,16 +574,16 @@ end)
 					<string name="Name">TopBar</string>
 					<UDim2 name="Position"><XS>0.5</XS><XO>-150</XO><YS>0.02</YS><YO>0</YO></UDim2>
 					<UDim2 name="Size"><XS>0</XS><XO>300</XO><YS>0</YS><YO>45</YO></UDim2>
-					<Color3uint8 name="BackgroundColor3">${colorToUint8(15, 23, 42)}</Color3uint8>
+					${buildColor3Xml('BackgroundColor3', 15, 23, 42)}
 					<float name="BackgroundTransparency">0.2</float>
-					<token name="BorderSizePixel">0</token>
+					<int name="BorderSizePixel">0</int>
 				</Properties>
 				<Item class="TextLabel" referent="${getRef('TITLE')}">
 					<Properties>
 						<string name="Name">TitleLabel</string>
 						<UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
 						<string name="Text">${escapeXml(title)}</string>
-						<Color3uint8 name="TextColor3">${colorToUint8(56, 189, 248)}</Color3uint8>
+						${buildColor3Xml('TextColor3', 56, 189, 248)}
 						<float name="TextSize">18</float>
 						<token name="Font">16</token>
 						<float name="BackgroundTransparency">1</float>
@@ -590,9 +596,9 @@ end)
 					<bool name="Visible">false</bool>
 					<UDim2 name="Position"><XS>0.5</XS><XO>-240</XO><YS>0.12</YS><YO>0</YO></UDim2>
 					<UDim2 name="Size"><XS>0</XS><XO>480</XO><YS>0</YS><YO>42</YO></UDim2>
-					<Color3uint8 name="BackgroundColor3">${colorToUint8(185, 28, 28)}</Color3uint8>
+					${buildColor3Xml('BackgroundColor3', 185, 28, 28)}
 					<float name="BackgroundTransparency">0.1</float>
-					<token name="BorderSizePixel">0</token>
+					<int name="BorderSizePixel">0</int>
 				</Properties>
 				<Item class="TextLabel" referent="${getRef('BCAST_LBL')}">
 					<Properties>
@@ -600,7 +606,7 @@ end)
 						<UDim2 name="Size"><XS>1</XS><XO>-16</XO><YS>1</YS><YO>0</YO></UDim2>
 						<UDim2 name="Position"><XS>0</XS><XO>8</XO><YS>0</YS><YO>0</YO></UDim2>
 						<string name="Text">Live Broadcast</string>
-						<Color3uint8 name="TextColor3">${colorToUint8(255, 255, 255)}</Color3uint8>
+						${buildColor3Xml('TextColor3', 255, 255, 255)}
 						<float name="TextSize">15</float>
 						<token name="Font">16</token>
 						<float name="BackgroundTransparency">1</float>
