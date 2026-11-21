@@ -427,6 +427,15 @@ app.get('/api/v1/sdk/minecraft/download', (req, res) => {
     }
 });
 
+// Pre-compiled drag-and-drop BloxCloud.jar built by GitHub Actions Maven workflow
+app.get('/api/v1/sdk/minecraft/download-jar', (req, res) => {
+    const localJar = path.resolve(__dirname, '../../../sdk/minecraft/target/BloxCloud.jar');
+    if (fs.existsSync(localJar)) {
+        return res.download(localJar, 'BloxCloud.jar');
+    }
+    res.redirect(302, 'https://github.com/NEXUSoffical/blox-cloud-/releases/download/minecraft-latest/BloxCloud.jar');
+});
+
 // Direct CDN script endpoint for HTML5, Three.js, Phaser & Web3/Crypto games
 app.get('/sdk/web.js', (req, res) => {
     try {
