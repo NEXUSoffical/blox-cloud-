@@ -248,7 +248,10 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <span class="text-xs font-semibold text-blue-300">Included in BloxCloud Plans</span>
+                    <span class="inline-flex items-center space-x-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/40">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Auto-Connected to Your Live Dashboard</span>
+                    </span>
                 </div>
             </div>
 
@@ -2097,7 +2100,10 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
                 }
 
                 document.getElementById('genResultTitle').innerText = `${data.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.rbxlx`;
-                document.getElementById('genResultSize').innerText = `${Math.round(data.fileSize / 1024)} KB • Ready for Roblox Studio`;
+                const connLabel = data.dashboardConnected
+                    ? `Auto-Wired to ${data.studioName || 'Your'} Dashboard`
+                    : 'Sign in to auto-wire API key';
+                document.getElementById('genResultSize').innerText = `${Math.round(data.fileSize / 1024)} KB • ${connLabel}`;
                 const dlLink = document.getElementById('genDownloadLink');
                 dlLink.href = data.downloadUrl;
                 downloadCard.classList.remove('hidden');

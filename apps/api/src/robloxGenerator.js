@@ -1,8 +1,27 @@
 // apps/api/src/robloxGenerator.js
 // Autonomous Roblox Game Generator (.rbxlx Place File Compiler)
-// Generates fully playable 3D worlds, procedural maps, Luau scripts, UI, and pre-wired BloxCloud datastores.
+// Generates fully playable 3D worlds, procedural maps, Luau scripts, UI, and pre-wired BloxCloud dashboard connection.
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+let cachedBloxCloudSdk = null;
+function getBloxCloudLuauSdk() {
+    if (cachedBloxCloudSdk) return cachedBloxCloudSdk;
+    try {
+        const sdkPath = path.join(__dirname, '../../../sdk/BloxCloud.luau');
+        cachedBloxCloudSdk = fs.readFileSync(sdkPath, 'utf8');
+    } catch (e) {
+        console.warn('[BloxCloud Generator] Could not read sdk/BloxCloud.luau:', e.message);
+        cachedBloxCloudSdk = '-- BloxCloud SDK fallback\nreturn { Init = function() end }\n';
+    }
+    return cachedBloxCloudSdk;
+}
+
+function escapeCdata(code) {
+    return String(code || '').replace(/\]\]>/g, ']]]]><![CDATA[>');
+}
 
 let referentCounter = 1000;
 function getRef(prefix = 'RBX') {
@@ -326,49 +345,73 @@ function generateSimulatorData(theme) {
 }
 
 /**
- * Builds Luau Game Script with BloxCloud integration
+ * Builds Luau Game Script with full auto-connected BloxCloud Dashboard SDK
  */
-function buildGameManagerScript(title, genre, apiKey, monetization) {
+function buildGameManagerScript(title, genre, apiKey, baseUrl, gameSlug, monetization) {
+    const safeLuaTitle = String(title || 'BloxCloud Game').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const safeLuaKey = String(apiKey || 'bc_live_demo_key').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const safeLuaUrl = String(baseUrl || 'https://bloxcloud.world').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const safeLuaSlug = String(gameSlug || 'ai_game').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
     return `--[[
-    BloxCloud AI Generated Game Engine
-    Game: ${title}
+    BloxCloud AI Generated Game Engine (Auto-Connected to Live Dashboard)
+    Game: ${safeLuaTitle}
     Genre: ${genre}
-    Cloud Sync: Active (https://bloxcloud.world)
+    Dashboard: ${safeLuaUrl}
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
-local HttpService = game:GetService("HttpService")
+
+-- 1. AUTO-CONNECT TO BLOXCLOUD DASHBOARD (Telemetry, Error Sentry, LiveOps, Broadcasts, Anti-Exploit)
+local BloxCloud = require(script.Parent:WaitForChild("BloxCloud"))
+local STUDIO_API_KEY = "${safeLuaKey}"
+local BLOXCLOUD_URL = "${safeLuaUrl}"
+local GAME_ID = "${safeLuaSlug}"
+
+local broadcastEvent = ReplicatedStorage:WaitForChild("BloxCloudBroadcast")
+
+if STUDIO_API_KEY ~= "" and STUDIO_API_KEY ~= "bc_live_demo_key" then
+    BloxCloud.Init(STUDIO_API_KEY, {
+        baseUrl = BLOXCLOUD_URL,
+        gameId = GAME_ID,
+        pollingInterval = 5,
+    })
+else
+    warn("[BloxCloud] Running with demo API key. Sign in at " .. BLOXCLOUD_URL .. " before generating to auto-link your live dashboard!")
+end
+
+-- Dynamic LiveOps Config (Controlled live from your BloxCloud Dashboard!)
+local liveCoinMultiplier = tonumber(BloxCloud.LiveOps:GetConfig("coin_multiplier", 1)) or 1
+local liveBaseWalkSpeed = tonumber(BloxCloud.LiveOps:GetConfig("walk_speed", 16)) or 16
+
+BloxCloud.LiveOps:OnConfigChange("coin_multiplier", function(newVal)
+    liveCoinMultiplier = tonumber(newVal) or 1
+    print("[BloxCloud LiveOps] Updated coin_multiplier -> " .. tostring(liveCoinMultiplier))
+end)
+
+BloxCloud.LiveOps:OnConfigChange("walk_speed", function(newVal)
+    liveBaseWalkSpeed = tonumber(newVal) or 16
+    for _, p in ipairs(Players:GetPlayers()) do
+        local hum = p.Character and p.Character:FindFirstChild("Humanoid")
+        if hum then
+            hum.WalkSpeed = liveBaseWalkSpeed
+        end
+    end
+end)
+
+-- Global Broadcast Receiver (Pushes dashboard announcements straight to all players' screens)
+BloxCloud.LiveOps:OnBroadcast(function(broadcast)
+    if broadcast and broadcast.message then
+        broadcastEvent:FireAllClients(broadcast.message, broadcast.severity or "INFO", broadcast.duration or 15)
+    end
+end)
 
 -- Monetization Config
 local GAMEPASS_DOUBLE_SPEED = ${monetization.doubleSpeedId || 0}
 local GAMEPASS_VIP = ${monetization.vipId || 0}
 local DEVPRODUCT_SKIP_LEVEL = ${monetization.skipLevelId || 0}
-
--- BloxCloud Telemetry & Data Layer
-local BLOXCLOUD_ENDPOINT = "https://bloxcloud.world/api/v1"
-local STUDIO_API_KEY = "${apiKey || 'bc_live_demo_key'}"
-
-local function reportTelemetry(tps, activePlayers)
-    if STUDIO_API_KEY == "bc_live_demo_key" then return end
-    pcall(function()
-        HttpService:RequestAsync({
-            Url = BLOXCLOUD_ENDPOINT .. "/telemetry/server",
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json",
-                ["Authorization"] = "Bearer " .. STUDIO_API_KEY
-            },
-            Body = HttpService:JSONEncode({
-                serverId = game.JobId or "studio-local",
-                tps = tps,
-                playerCount = activePlayers,
-                timestamp = os.time()
-            })
-        })
-    end)
-end
 
 -- Initialize Player Stats
 Players.PlayerAdded:Connect(function(player)
@@ -389,12 +432,15 @@ Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         local humanoid = character:WaitForChild("Humanoid", 10)
         local root = character:WaitForChild("HumanoidRootPart", 10)
+        if not humanoid then return end
+
+        humanoid.WalkSpeed = liveBaseWalkSpeed
 
         -- Check Gamepass for Double Speed
         if GAMEPASS_DOUBLE_SPEED > 0 then
             pcall(function()
                 if MarketplaceService:UserOwnsGamePassAsync(player.UserId, GAMEPASS_DOUBLE_SPEED) then
-                    humanoid.WalkSpeed = 32
+                    humanoid.WalkSpeed = liveBaseWalkSpeed * 2
                 end
             end)
         end
@@ -408,7 +454,27 @@ Players.PlayerAdded:Connect(function(player)
     end)
 end)
 
--- Kill Hazard & Checkpoint Collisions
+-- Lightweight Anti-Exploit Monitor (Streams speedhack alerts to BloxCloud Dashboard & Discord)
+task.spawn(function()
+    local flaggedCooldown = {}
+    while true do
+        task.wait(5)
+        for _, player in ipairs(Players:GetPlayers()) do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                local horizSpeed = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z).Magnitude
+                local maxAllowed = (liveBaseWalkSpeed * 2) + 35
+                if horizSpeed > maxAllowed and (not flaggedCooldown[player.UserId] or os.clock() - flaggedCooldown[player.UserId] > 30) then
+                    flaggedCooldown[player.UserId] = os.clock()
+                    BloxCloud.Telemetry:ReportExploit(player, "SPEED_HACK", string.format("Velocity %.1f exceeded threshold %.1f", horizSpeed, maxAllowed))
+                end
+            end
+        end
+    end
+end)
+
+-- Kill Hazard, Coin Nodes & Checkpoint Collisions
 for _, part in ipairs(workspace:GetDescendants()) do
     if part:IsA("BasePart") then
         if part.Name == "KillHazard" then
@@ -430,32 +496,61 @@ for _, part in ipairs(workspace:GetDescendants()) do
                     if pStage and pStage.Value < stageNum then
                         pStage.Value = stageNum
                         local pCoins = lstats:FindFirstChild("Coins")
-                        if pCoins then pCoins.Value = pCoins.Value + 10 end
+                        if pCoins then
+                            pCoins.Value = pCoins.Value + math.floor(10 * liveCoinMultiplier)
+                        end
                     end
+                end
+            end)
+        elseif string.match(part.Name, "^CoinNode_(%d+)$") then
+            local debounce = false
+            part.Touched:Connect(function(hit)
+                if debounce then return end
+                local char = hit.Parent
+                local player = Players:GetPlayerFromCharacter(char)
+                if player then
+                    debounce = true
+                    local lstats = player:FindFirstChild("leaderstats")
+                    local pCoins = lstats and lstats:FindFirstChild("Coins")
+                    if pCoins then
+                        pCoins.Value = pCoins.Value + math.floor(5 * liveCoinMultiplier)
+                    end
+                    part.Transparency = 0.8
+                    task.wait(3)
+                    part.Transparency = 0
+                    debounce = false
                 end
             end)
         end
     end
 end
 
--- 60s Heartbeat Telemetry
-task.spawn(function()
-    while true do
-        task.wait(60)
-        reportTelemetry(60, #Players:GetPlayers())
-    end
-end)
-
-print("[BloxCloud AI Engine] Game initialized successfully: " .. "${escapeXml(title)}")
+print("[BloxCloud AI Engine] Live dashboard connected for: " .. "${safeLuaTitle}")
 `;
 }
 
 /**
- * Builds StarterGui ScreenGui with HUD and Shop Prompts
+ * Builds StarterGui ScreenGui with HUD and Live Dashboard Broadcast Banner
  */
 function buildStarterGuiXml(title, genre) {
     const guiRef = getRef('GUI');
     const frameRef = getRef('FRAME');
+    const bannerRef = getRef('BANNER');
+    const clientScript = `
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local broadcastEvent = ReplicatedStorage:WaitForChild("BloxCloudBroadcast")
+local banner = script.Parent:WaitForChild("BroadcastBanner")
+local label = banner:WaitForChild("BroadcastLabel")
+
+broadcastEvent.OnClientEvent:Connect(function(message, severity, duration)
+    label.Text = "[ANNOUNCEMENT] " .. tostring(message)
+    banner.Visible = true
+    task.delay(tonumber(duration) or 12, function()
+        banner.Visible = false
+    end)
+end)
+`;
+
     return `
 	<Item class="StarterGui" referent="RBXSTARTERGUI">
 		<Properties>
@@ -489,6 +584,35 @@ function buildStarterGuiXml(title, genre) {
 					</Properties>
 				</Item>
 			</Item>
+			<Item class="Frame" referent="${bannerRef}">
+				<Properties>
+					<string name="Name">BroadcastBanner</string>
+					<bool name="Visible">false</bool>
+					<UDim2 name="Position"><XS>0.5</XS><XO>-240</XO><YS>0.12</YS><YO>0</YO></UDim2>
+					<UDim2 name="Size"><XS>0</XS><XO>480</XO><YS>0</YS><YO>42</YO></UDim2>
+					<Color3uint8 name="BackgroundColor3">${colorToUint8(185, 28, 28)}</Color3uint8>
+					<float name="BackgroundTransparency">0.1</float>
+					<token name="BorderSizePixel">0</token>
+				</Properties>
+				<Item class="TextLabel" referent="${getRef('BCAST_LBL')}">
+					<Properties>
+						<string name="Name">BroadcastLabel</string>
+						<UDim2 name="Size"><XS>1</XS><XO>-16</XO><YS>1</YS><YO>0</YO></UDim2>
+						<UDim2 name="Position"><XS>0</XS><XO>8</XO><YS>0</YS><YO>0</YO></UDim2>
+						<string name="Text">Live Broadcast</string>
+						<Color3uint8 name="TextColor3">${colorToUint8(255, 255, 255)}</Color3uint8>
+						<float name="TextSize">15</float>
+						<token name="Font">16</token>
+						<float name="BackgroundTransparency">1</float>
+					</Properties>
+				</Item>
+			</Item>
+			<Item class="LocalScript" referent="${getRef('BCAST_CLIENT')}">
+				<Properties>
+					<string name="Name">BloxCloudBroadcastClient</string>
+					<ProtectedString name="Source"><![CDATA[${escapeCdata(clientScript)}]]></ProtectedString>
+				</Properties>
+			</Item>
 		</Item>
 	</Item>`;
 }
@@ -504,9 +628,11 @@ function compileRobloxPlace({
     difficulty = 'medium',
     stagesCount = 25,
     apiKey = 'bc_live_demo',
+    baseUrl = 'https://bloxcloud.world',
     monetization = {}
 }) {
     const safeTitle = (title || 'AI Generated Roblox Game').trim();
+    const gameSlug = safeTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'ai_game';
     const t = THEMES[theme] || THEMES.cyberpunk;
 
     // Generate 3D Map parts based on genre
@@ -519,8 +645,9 @@ function compileRobloxPlace({
         mapPartsXml = generateObbyData(theme, stagesCount);
     }
 
-    // Build Luau Script
-    const serverScript = buildGameManagerScript(safeTitle, genre, apiKey, monetization);
+    // Build Luau Scripts & Embedded BloxCloud SDK
+    const bloxCloudSdkSource = getBloxCloudLuauSdk();
+    const serverScript = buildGameManagerScript(safeTitle, genre, apiKey, baseUrl, gameSlug, monetization);
     const starterGuiXml = buildStarterGuiXml(safeTitle, genre);
 
     // Complete .rbxlx XML Place File
@@ -572,15 +699,26 @@ function compileRobloxPlace({
 		<Properties>
 			<string name="Name">ReplicatedStorage</string>
 		</Properties>
+		<Item class="RemoteEvent" referent="${getRef('REMOTEEVENT')}">
+			<Properties>
+				<string name="Name">BloxCloudBroadcast</string>
+			</Properties>
+		</Item>
 	</Item>
 	<Item class="ServerScriptService" referent="RBXSERVERSCRIPTSERVICE">
 		<Properties>
 			<string name="Name">ServerScriptService</string>
 		</Properties>
+		<Item class="ModuleScript" referent="${getRef('SDK_MOD')}">
+			<Properties>
+				<string name="Name">BloxCloud</string>
+				<ProtectedString name="Source"><![CDATA[${escapeCdata(bloxCloudSdkSource)}]]></ProtectedString>
+			</Properties>
+		</Item>
 		<Item class="Script" referent="${getRef('SCRIPT')}">
 			<Properties>
 				<string name="Name">BloxCloudGameManager</string>
-				<ProtectedString name="Source"><![CDATA[${serverScript}]]></ProtectedString>
+				<ProtectedString name="Source"><![CDATA[${escapeCdata(serverScript)}]]></ProtectedString>
 			</Properties>
 		</Item>
 	</Item>
@@ -594,8 +732,10 @@ function compileRobloxPlace({
 
     return {
         title: safeTitle,
+        gameSlug,
         genre,
         theme,
+        dashboardConnected: Boolean(apiKey && apiKey !== 'bc_live_demo' && apiKey !== 'bc_live_demo_key'),
         xml: rbxlxXml,
         fileSize: Buffer.byteLength(rbxlxXml, 'utf8')
     };

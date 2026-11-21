@@ -886,14 +886,22 @@ app.post('/api/v1/generator/roblox/generate', (req, res) => {
     try {
         const { title, genre, theme, difficulty, stagesCount, monetization } = req.body || {};
         
-        // Find user if authenticated, else use demo
+        // Auto-wire the authenticated studio's real API key so the game connects directly to their live dashboard
         const authHeader = req.headers['authorization'];
         let apiKey = 'bc_live_demo';
+        let studioName = 'Demo Studio';
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.substring(7);
             const user = auth.getUserByToken(token);
-            if (user) apiKey = user.apiKey;
+            if (user) {
+                apiKey = user.apiKey;
+                studioName = user.studioName || user.username || 'Your Studio';
+            }
         }
+
+        const host = req.get('host') || 'bloxcloud.world';
+        const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+        const baseUrl = isLocal ? `http://${host}` : 'https://bloxcloud.world';
 
         const game = robloxGenerator.compileRobloxPlace({
             title: title || 'Cyberpunk Tower Obby',
@@ -902,6 +910,7 @@ app.post('/api/v1/generator/roblox/generate', (req, res) => {
             difficulty: difficulty || 'medium',
             stagesCount: Math.min(Math.max(Number(stagesCount) || 25, 5), 100),
             apiKey,
+            baseUrl,
             monetization: monetization || {}
         });
 
@@ -916,8 +925,11 @@ app.post('/api/v1/generator/roblox/generate', (req, res) => {
             success: true,
             gameId,
             title: game.title,
+            gameSlug: game.gameSlug,
             genre: game.genre,
             theme: game.theme,
+            studioName,
+            dashboardConnected: game.dashboardConnected,
             fileSize: game.fileSize,
             downloadUrl: `/api/v1/generator/roblox/download/${gameId}`
         });
