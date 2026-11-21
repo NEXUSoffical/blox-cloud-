@@ -92,6 +92,7 @@
             <div class="sticky top-20 glass-panel rounded-2xl p-4 space-y-1 text-xs">
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5">Getting Started</div>
                 <a href="#quickstart" class="block px-3 py-2 rounded-lg font-semibold text-cyan-300 bg-blue-950/70 border border-blue-500/30">1. Quickstart Guide</a>
+                <a href="#ai-studio" class="block px-3 py-2 rounded-lg font-semibold text-cyan-300 hover:text-white hover:bg-cyan-900/30 transition-all">1B. AI Game Studio (.rbxlx)</a>
                 <a href="#sdk-install" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">2. Roblox SDK Setup</a>
                 <a href="#minecraft-sdk" class="block px-3 py-2 rounded-lg font-semibold text-emerald-300 hover:text-white hover:bg-emerald-900/30 transition-all">2B. Minecraft Plugin Setup</a>
                 <a href="#web-sdk" class="block px-3 py-2 rounded-lg font-semibold text-purple-300 hover:text-white hover:bg-purple-900/30 transition-all">2C. Web & Web3 Games (JS)</a>
@@ -128,6 +129,32 @@
                     </div>
                     <div>Roblox Studio blocks outbound cloud HTTP requests by default. Before testing:</div>
                     <div class="font-mono bg-black/40 px-2 py-1 rounded mt-1">Roblox Studio → Home → Game Settings → Security → Turn ON "Allow HTTP Requests" → Save</div>
+                </div>
+            </section>
+
+            <!-- Section 1B: AI Game Studio Generator -->
+            <section id="ai-studio" class="glass-panel rounded-2xl p-8 space-y-4 border border-cyan-500/30">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 flex items-center justify-center font-bold">1B</span>
+                    <h2 class="text-xl font-extrabold text-white">AI Game Studio (.rbxlx Generator)</h2>
+                </div>
+                <p class="text-slate-300">
+                    Every <code class="font-mono text-cyan-300">.rbxlx</code> place file compiled by the BloxCloud AI Game Studio automatically embeds the full BloxCloud Luau SDK (<code class="font-mono text-cyan-300">ServerScriptService.BloxCloud</code>) pre-configured with your signed-in Studio API Key.
+                </p>
+                <ul class="list-disc pl-5 space-y-1.5 text-slate-300 text-xs">
+                    <li><strong>Live Telemetry</strong>: Streams server FPS, memory (MB), ping, and player count every 15 seconds directly into your dashboard.</li>
+                    <li><strong>LiveOps Flags</strong>: Remote flags <code class="font-mono text-cyan-300">coin_multiplier</code> and <code class="font-mono text-cyan-300">walk_speed</code> update live in-game without restarting servers.</li>
+                    <li><strong>Global Broadcast Banner</strong>: Emergency announcements sent from your dashboard appear live across all connected players' screens.</li>
+                    <li><strong>Error Sentry &amp; Anti-Exploit</strong>: Automatically reports script crashes and speedhack anomalies to your dashboard and Discord webhook.</li>
+                </ul>
+                <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-1.5">
+                    <div class="font-bold flex items-center space-x-1.5 text-amber-300">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Required Step After Downloading Your .rbxlx Game</span>
+                    </div>
+                    <div>To connect your generated game to your live BloxCloud dashboard, open the <code class="font-mono text-amber-100">.rbxlx</code> file in Roblox Studio and enable HTTP Requests:</div>
+                    <div class="font-mono bg-black/40 px-2.5 py-1.5 rounded">Roblox Studio → Home → Game Settings → Security → Turn ON "Allow HTTP Requests" → Save</div>
+                    <div class="text-amber-200/90">Note: If "Game Settings" asks you to save/publish to Roblox first, publish the place once, enable Allow HTTP Requests, and press Play. Your server will appear live on your BloxCloud dashboard within 15 seconds.</div>
                 </div>
             </section>
 
