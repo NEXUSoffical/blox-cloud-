@@ -24,6 +24,7 @@ const defaultSchema = {
     listings: [],
     ledger: [],
     matchCounts: {},
+    generationCounts: {},
 };
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -247,6 +248,23 @@ class PersistentDB {
         if (!studioId || !this.data.matchCounts) return 0;
         const key = this._currentMonthKey(studioId);
         return Number(this.data.matchCounts[key]) || 0;
+    }
+
+    incrementMonthlyGenerationCount(studioId) {
+        if (!studioId) return 0;
+        if (!this.data.generationCounts || typeof this.data.generationCounts !== 'object') {
+            this.data.generationCounts = {};
+        }
+        const key = this._currentMonthKey(studioId);
+        this.data.generationCounts[key] = (Number(this.data.generationCounts[key]) || 0) + 1;
+        this.save();
+        return this.data.generationCounts[key];
+    }
+
+    getMonthlyGenerationCount(studioId) {
+        if (!studioId || !this.data.generationCounts) return 0;
+        const key = this._currentMonthKey(studioId);
+        return Number(this.data.generationCounts[key]) || 0;
     }
 
     deleteSession(token) {

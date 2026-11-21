@@ -233,16 +233,36 @@ app.post('/api/v1/auth/login', async (req, res) => {
     }
 });
 
-app.post('/api/v1/auth/forgot-password', (req, res) => {
+// Strict rate limiter for password reset endpoints (max 5 attempts per 15 minutes per IP)
+const authResetBuckets = new Map();
+setInterval(() => authResetBuckets.clear(), 15 * 60 * 1000).unref();
+function rateLimitPasswordReset(req, res, next) {
+    const ip = req.ip || 'unknown';
+    const count = (authResetBuckets.get(ip) || 0) + 1;
+    authResetBuckets.set(ip, count);
+    if (count > 5) {
+        return res.status(429).json({ success: false, error: 'Too many password reset requests. Please wait 15 minutes and try again.' });
+    }
+    next();
+}
+
+app.post('/api/v1/auth/forgot-password', rateLimitPasswordReset, async (req, res) => {
     const { email } = req.body || {};
     if (!email) {
         return res.status(400).json({ success: false, error: 'Email is required.' });
     }
-    const result = auth.requestPasswordReset(email);
-    res.json(result);
+    try {
+        const result = await auth.requestPasswordReset(email);
+        if (!result.success) {
+            return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.json({ success: true, message: result.message });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'Error initiating password reset.' });
+    }
 });
 
-app.post('/api/v1/auth/reset-password', async (req, res) => {
+app.post('/api/v1/auth/reset-password', rateLimitPasswordReset, async (req, res) => {
     const { email, code, newPassword } = req.body || {};
     if (!email || !code || !newPassword) {
         return res.status(400).json({ success: false, error: 'Email, verification code, and new password are required.' });
@@ -880,24 +900,29 @@ app.get('/api/v1/marketplace/ledger', requireSession, (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// AI GAME STUDIO GENERATOR (ROBLOX)
+// AI GAME STUDIO GENERATOR (ROBLOX) — Plan-Gated & Auto-Connected
 // -----------------------------------------------------------------------------
-app.post('/api/v1/generator/roblox/generate', (req, res) => {
+const MAX_GENERATED_GAMES_CACHE = 100;
+
+app.post('/api/v1/generator/roblox/generate', requireSession, (req, res) => {
     try {
-        const { title, genre, theme, difficulty, stagesCount, monetization } = req.body || {};
-        
-        // Auto-wire the authenticated studio's real API key so the game connects directly to their live dashboard
-        const authHeader = req.headers['authorization'];
-        let apiKey = 'bc_live_demo';
-        let studioName = 'Demo Studio';
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.substring(7);
-            const user = auth.getUserByToken(token);
-            if (user) {
-                apiKey = user.apiKey;
-                studioName = user.studioName || user.username || 'Your Studio';
-            }
+        const user = req.user;
+        const plan = billing.getPlan(user.plan);
+        const maxPerMonth = plan.limits.maxAiGamesPerMonth ?? 2;
+        const usedThisMonth = db.getMonthlyGenerationCount(user.id);
+
+        if (usedThisMonth >= maxPerMonth) {
+            return res.status(403).json({
+                success: false,
+                code: 'PLAN_LIMIT_REACHED',
+                error: `Monthly AI Game Studio limit reached (${usedThisMonth}/${maxPerMonth} on ${plan.name}). Upgrade to Pro (£24/mo for 15 games/mo) or Studio (£79/mo for unlimited games).`,
+                generationsUsed: usedThisMonth,
+                generationsLimit: Number.isFinite(maxPerMonth) ? maxPerMonth : -1,
+            });
         }
+
+        const { title, genre, theme, difficulty, stagesCount, monetization } = req.body || {};
+        const studioName = user.studioName || user.username || 'Your Studio';
 
         const host = req.get('host') || 'bloxcloud.world';
         const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
@@ -909,14 +934,22 @@ app.post('/api/v1/generator/roblox/generate', (req, res) => {
             theme: theme || 'cyberpunk',
             difficulty: difficulty || 'medium',
             stagesCount: Math.min(Math.max(Number(stagesCount) || 25, 5), 100),
-            apiKey,
+            apiKey: user.apiKey,
             baseUrl,
             monetization: monetization || {}
         });
 
+        // Cap in-memory cache size to prevent RAM exhaustion
+        if (generatedGamesCache.size >= MAX_GENERATED_GAMES_CACHE) {
+            const oldestKey = generatedGamesCache.keys().next().value;
+            if (oldestKey) generatedGamesCache.delete(oldestKey);
+        }
+
+        const newUsedCount = db.incrementMonthlyGenerationCount(user.id);
         const gameId = crypto.randomBytes(16).toString('hex');
         generatedGamesCache.set(gameId, {
             ...game,
+            studioId: user.id,
             createdAt: Date.now(),
             expiresAt: Date.now() + 60 * 60 * 1000 // 1 hour
         });
@@ -930,6 +963,8 @@ app.post('/api/v1/generator/roblox/generate', (req, res) => {
             theme: game.theme,
             studioName,
             dashboardConnected: game.dashboardConnected,
+            generationsUsed: newUsedCount,
+            generationsLimit: Number.isFinite(maxPerMonth) ? maxPerMonth : -1,
             fileSize: game.fileSize,
             downloadUrl: `/api/v1/generator/roblox/download/${gameId}`
         });

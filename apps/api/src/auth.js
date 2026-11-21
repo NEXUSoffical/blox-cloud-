@@ -122,66 +122,115 @@ class AuthManager {
     }
 
     /**
-     * Request a password reset. Creates a 15-minute secure reset token.
+     * Request a password reset. Creates a 15-minute cryptographically secure 6-digit code
+     * and dispatches it via email (Resend API). NEVER returns the code in the HTTP response.
      */
-    requestPasswordReset(email) {
+    async requestPasswordReset(email) {
         const cleanEmail = (email || '').trim().toLowerCase();
-        const user = db.findUserByEmail(cleanEmail);
-        if (!user) {
-            // Return success even if not found to prevent user enumeration
-            return { success: true, message: 'If an account exists with this email, a reset code has been generated.' };
+        const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
+
+        if (!resendApiKey) {
+            return {
+                success: false,
+                status: 503,
+                error: 'Automated password reset email is not configured yet. Please contact @Bloxcloud1999 on X for account recovery.',
+            };
         }
 
-        // 6-digit verification code + token
-        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const token = crypto.randomBytes(24).toString('hex');
+        const user = db.findUserByEmail(cleanEmail);
+        if (!user) {
+            // Return identical generic success even if not found to prevent user enumeration
+            return { success: true, message: 'If an account exists with this email, a 6-digit reset code has been emailed to you.' };
+        }
+
+        // Invalidate any previous pending codes for this user
+        resetTokens.delete(`email_${cleanEmail}`);
+
+        // Cryptographically secure 6-digit code
+        const resetCode = crypto.randomInt(100000, 1000000).toString();
         const expiresAt = Date.now() + 15 * 60 * 1000;
 
-        resetTokens.set(token, {
+        resetTokens.set(`email_${cleanEmail}`, {
             userId: user.id,
             email: user.email,
             resetCode,
+            attempts: 0,
             expiresAt,
         });
 
-        // Also index by 6-digit code for fast form entry
-        resetTokens.set(`code_${cleanEmail}_${resetCode}`, {
-            token,
-            userId: user.id,
-            expiresAt,
-        });
-
-        console.log(`[BloxCloud Auth] Password reset requested for ${cleanEmail}. Verification Code: ${resetCode}`);
+        const fromAddress = (process.env.EMAIL_FROM || 'BloxCloud Security <onboarding@resend.dev>').trim();
+        try {
+            const resp = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${resendApiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: fromAddress,
+                    to: [user.email],
+                    subject: 'BloxCloud Password Reset Code',
+                    html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#071129;color:#f8fafc;border-radius:12px;">
+                        <h2 style="color:#38bdf8;margin-top:0;">BloxCloud Password Reset</h2>
+                        <p>Use this 6-digit verification code to reset your password. It expires in 15 minutes:</p>
+                        <div style="font-size:32px;font-weight:bold;letter-spacing:6px;padding:16px;background:#0f172a;border:1px solid #38bdf8;border-radius:8px;text-align:center;color:#ffffff;">${resetCode}</div>
+                        <p style="font-size:12px;color:#94a3b8;margin-top:16px;">If you did not request this reset, you can safely ignore this email.</p>
+                    </div>`,
+                }),
+            });
+            if (!resp.ok) {
+                const errText = await resp.text().catch(() => '');
+                console.error(`[BloxCloud Auth] Resend email dispatch failed (${resp.status}):`, errText);
+                resetTokens.delete(`email_${cleanEmail}`);
+                return { success: false, status: 502, error: 'Failed to send reset email. Please try again shortly.' };
+            }
+        } catch (err) {
+            console.error('[BloxCloud Auth] Email network error:', err.message);
+            resetTokens.delete(`email_${cleanEmail}`);
+            return { success: false, status: 502, error: 'Failed to connect to email service. Please try again shortly.' };
+        }
 
         return {
             success: true,
-            message: 'Reset verification code created (valid for 15 minutes).',
-            resetToken: token,
-            resetCode, // Returned for UI / direct display
+            message: 'If an account exists with this email, a 6-digit reset code has been emailed to you.',
         };
     }
 
     /**
-     * Complete password reset using token or 6-digit code.
+     * Complete password reset using email + 6-digit code with brute-force protection.
      */
-    async resetPassword(email, resetCodeOrToken, newPassword) {
+    async resetPassword(email, resetCode, newPassword) {
         if (!newPassword || newPassword.length < 6) {
             return { success: false, error: 'New password must be at least 6 characters.' };
         }
         const cleanEmail = (email || '').trim().toLowerCase();
-        const cleanCode = (resetCodeOrToken || '').trim();
+        const cleanCode = (resetCode || '').trim();
 
-        let session = resetTokens.get(cleanCode);
-        if (!session) {
-            session = resetTokens.get(`code_${cleanEmail}_${cleanCode}`);
-        }
+        const recordKey = `email_${cleanEmail}`;
+        const session = resetTokens.get(recordKey);
 
         if (!session || Date.now() > session.expiresAt) {
+            resetTokens.delete(recordKey);
             return { success: false, error: 'Invalid or expired reset code. Please request a new one.' };
+        }
+
+        // Brute-force guard: max 5 failed guesses per code
+        const expectedBuf = Buffer.from(session.resetCode, 'utf8');
+        const actualBuf = Buffer.from(cleanCode, 'utf8');
+        const isMatch = expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
+
+        if (!isMatch) {
+            session.attempts = (session.attempts || 0) + 1;
+            if (session.attempts >= 5) {
+                resetTokens.delete(recordKey);
+                return { success: false, error: 'Too many failed attempts. Please request a new reset code.' };
+            }
+            return { success: false, error: 'Invalid verification code.' };
         }
 
         const user = db.findUserById(session.userId);
         if (!user) {
+            resetTokens.delete(recordKey);
             return { success: false, error: 'User account not found.' };
         }
 
@@ -191,10 +240,8 @@ class AuthManager {
         user.passwordHash = passwordHash;
         db.saveUser(user);
 
-        // Invalidate reset tokens for this user
-        for (const [k, v] of resetTokens.entries()) {
-            if (v.userId === user.id) resetTokens.delete(k);
-        }
+        // Invalidate reset code immediately
+        resetTokens.delete(recordKey);
 
         // Generate fresh login session
         const sessionToken = crypto.randomBytes(32).toString('hex');

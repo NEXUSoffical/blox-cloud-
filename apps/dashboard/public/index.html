@@ -1383,12 +1383,10 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
                     return;
                 }
 
-                // Transition to reset code entry
+                // Transition to reset code entry (code is emailed, never returned in API JSON)
                 document.getElementById('forgotPwRequestForm').classList.add('hidden');
                 document.getElementById('forgotPwResetForm').classList.remove('hidden');
-                if (data.resetCode) {
-                    document.getElementById('resetCodeInput').value = data.resetCode;
-                }
+                document.getElementById('resetCodeInput').value = '';
             } catch (err) {
                 errDiv.innerText = 'Connection error: ' + err.message;
                 errDiv.classList.remove('hidden');
@@ -2109,14 +2107,25 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
                 statusDiv.classList.add('hidden');
 
                 if (!res.ok || !data.success) {
+                    if (res.status === 401) {
+                        alert('Please sign in or create a free account to generate auto-connected Roblox games.');
+                        document.getElementById('authModal').classList.remove('hidden');
+                        return;
+                    }
+                    if (res.status === 403 && data.code === 'PLAN_LIMIT_REACHED') {
+                        alert(data.error);
+                        openBillingModal();
+                        return;
+                    }
                     alert('Generation error: ' + (data.error || 'Failed to generate game.'));
                     return;
                 }
 
                 document.getElementById('genResultTitle').innerText = `${data.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.rbxlx`;
-                const connLabel = data.dashboardConnected
-                    ? `Auto-Wired to ${data.studioName || 'Your'} Dashboard`
-                    : 'Sign in to auto-wire API key';
+                const quotaLabel = data.generationsLimit > 0
+                    ? `${data.generationsUsed}/${data.generationsLimit} this mo`
+                    : 'Unlimited plan';
+                const connLabel = `Auto-Wired to ${data.studioName || 'Your'} Dashboard • ${quotaLabel}`;
                 document.getElementById('genResultSize').innerText = `${Math.round(data.fileSize / 1024)} KB • ${connLabel}`;
                 const dlLink = document.getElementById('genDownloadLink');
                 dlLink.href = data.downloadUrl;
