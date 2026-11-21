@@ -67,9 +67,10 @@ app.get(['/legal', '/terms', '/privacy'], (req, res) => {
     res.sendFile('legal.html', { root: dashboardPath });
 });
 
-// Path to Luau & Minecraft SDKs
+// Path to Luau, Minecraft & Web/JS SDKs
 const sdkPath = path.resolve(__dirname, '../../../sdk/BloxCloud.luau');
 const minecraftSdkPath = path.resolve(__dirname, '../../../sdk/BloxCloudPlugin.java');
+const webSdkPath = path.resolve(__dirname, '../../../sdk/BloxCloud.js');
 
 // Auth middleware helper
 function getAuthUser(req) {
@@ -436,6 +437,33 @@ app.get('/api/v1/sdk/minecraft/download', (req, res) => {
         res.download(minecraftSdkPath, 'BloxCloudPlugin.java');
     } catch (err) {
         res.status(500).json({ error: 'Failed to download Minecraft plugin source' });
+    }
+});
+
+// Direct CDN script endpoint for HTML5, Three.js, Phaser & Web3/Crypto games
+app.get('/sdk/web.js', (req, res) => {
+    try {
+        res.set('Content-Type', 'application/javascript; charset=utf-8');
+        res.sendFile(webSdkPath);
+    } catch (err) {
+        res.status(500).send('// Failed to serve BloxCloud Web SDK');
+    }
+});
+
+app.get('/api/v1/sdk/web/code', (req, res) => {
+    try {
+        const code = fs.readFileSync(webSdkPath, 'utf8');
+        res.json({ code });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to read Web/JS SDK source' });
+    }
+});
+
+app.get('/api/v1/sdk/web/download', (req, res) => {
+    try {
+        res.download(webSdkPath, 'BloxCloud.js');
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to download Web/JS SDK' });
     }
 });
 

@@ -25,21 +25,29 @@ class TelemetryManager {
             placeId = 'Universe_Place',
             engine: rawEngine,
             playerCount = 0,
-            serverFps = 60,
+            serverFps,
+            fps,
             serverTps,
-            serverMemoryMb = 450,
-            serverPing = 35,
+            serverMemoryMb,
+            memoryMb,
+            serverPing,
+            pingMs,
             region = 'US-East',
             uptimeSeconds = 0,
         } = data;
 
         if (!jobId) return false;
 
-        const isMinecraft = String(rawEngine || '').toUpperCase() === 'MINECRAFT' || serverTps !== undefined;
-        const engine = isMinecraft ? 'MINECRAFT' : 'ROBLOX';
-        const tpsVal = isMinecraft ? (Number(serverTps ?? serverFps) || 20.0) : null;
-        const fpsVal = isMinecraft ? tpsVal : (Number(serverFps) || 60);
-        const memVal = Math.round(Number(serverMemoryMb) || 450);
+        const upperEngine = String(rawEngine || '').toUpperCase();
+        const isMinecraft = upperEngine === 'MINECRAFT' || serverTps !== undefined;
+        const isWeb = upperEngine === 'WEB';
+        const engine = isMinecraft ? 'MINECRAFT' : isWeb ? 'WEB' : 'ROBLOX';
+        const rawFps = serverFps ?? fps ?? 60;
+        const rawMem = serverMemoryMb ?? memoryMb ?? 450;
+        const rawPing = serverPing ?? pingMs ?? 35;
+        const tpsVal = isMinecraft ? (Number(serverTps ?? rawFps) || 20.0) : null;
+        const fpsVal = isMinecraft ? tpsVal : (Number(rawFps) || 60);
+        const memVal = Math.round(Number(rawMem) || 450);
 
         const isDegraded = isMinecraft
             ? (tpsVal < 15.0 || memVal > 6144)
@@ -54,7 +62,7 @@ class TelemetryManager {
             serverFps: fpsVal,
             serverTps: tpsVal,
             serverMemoryMb: memVal,
-            serverPing: Math.round(Number(serverPing) || 35),
+            serverPing: Math.round(Number(rawPing) || 35),
             region,
             uptimeSeconds: Math.round(Number(uptimeSeconds) || 0),
             lastHeartbeat: Date.now(),

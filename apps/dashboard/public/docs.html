@@ -77,6 +77,10 @@
                 <i class="fa-solid fa-cubes text-xs"></i>
                 <span>Minecraft Plugin</span>
             </a>
+            <a href="/api/v1/sdk/web/download" download class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 hover:from-purple-500 hover:to-fuchsia-400 text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-purple-600/30 border border-purple-400/40 transition-all">
+                <i class="fa-brands fa-js text-xs"></i>
+                <span>Web / Web3 SDK</span>
+            </a>
         </div>
     </header>
 
@@ -90,6 +94,7 @@
                 <a href="#quickstart" class="block px-3 py-2 rounded-lg font-semibold text-cyan-300 bg-blue-950/70 border border-blue-500/30">1. Quickstart Guide</a>
                 <a href="#sdk-install" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">2. Roblox SDK Setup</a>
                 <a href="#minecraft-sdk" class="block px-3 py-2 rounded-lg font-semibold text-emerald-300 hover:text-white hover:bg-emerald-900/30 transition-all">2B. Minecraft Plugin Setup</a>
+                <a href="#web-sdk" class="block px-3 py-2 rounded-lg font-semibold text-purple-300 hover:text-white hover:bg-purple-900/30 transition-all">2C. Web & Web3 Games (JS)</a>
 
                 <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1.5 pt-4">Core Modules</div>
                 <a href="#telemetry" class="block px-3 py-2 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-blue-900/30 transition-all">3. Fleet Telemetry & Diagnostics</a>
@@ -190,6 +195,55 @@ BloxCloudPlugin.get().joinQueue(player, "Ranked_1v1", 1350);
 // 3. Cross-Server Global Auction House with atomic anti-dupe lock
 BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);
 boolean purchased = BloxCloudPlugin.get().buyGlobalItem(buyer, "list_7d477c1b");</code></pre>
+                </div>
+            </section>
+
+            <!-- Section 2C: Web, HTML5 & Web3 / Crypto Games (JavaScript SDK) -->
+            <section id="web-sdk" class="glass-panel rounded-2xl p-8 space-y-4 border-purple-500/40">
+                <div class="flex items-center space-x-3">
+                    <span class="w-8 h-8 rounded-xl bg-purple-600/30 text-purple-300 border border-purple-500/40 flex items-center justify-center font-bold">2C</span>
+                    <h2 class="text-xl font-extrabold text-white">Web, HTML5 & Web3 / Crypto Games (JavaScript / TypeScript SDK)</h2>
+                </div>
+                <p class="text-slate-300 text-xs">
+                    Building a Three.js, Phaser, Unity WebGL, Telegram Mini-Game, or Solana/EVM crypto game? Drop one <code class="font-mono text-purple-300">&lt;script&gt;</code> tag into your <code class="font-mono text-purple-300">index.html</code> (or download <a href="/api/v1/sdk/web/download" download class="text-purple-300 underline font-semibold">BloxCloud.js</a> for Node.js/Vite) to get instant 1v1 wager matchmaking, off-chain anti-dupe trading, live telemetry, and remote kill-switches with zero server DevOps.
+                </p>
+
+                <div class="relative">
+                    <pre class="p-4 rounded-xl text-xs font-mono text-purple-300 overflow-x-auto"><code>&lt;!-- 1. Drop directly into your index.html (zero build tools required) --&gt;
+&lt;script src="https://bloxcloud.world/sdk/web.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  const cloud = new BloxCloud({
+    apiKey: "bc_live_your_api_key",
+    region: "GLOBAL"
+  });
+
+  // Auto-detects Phantom (Solana), MetaMask (EVM), Telegram Mini-App, or Guest ID
+  const player = cloud.web3.detectPlayerIdentity();
+
+  // Start automatic FPS & memory telemetry heartbeats
+  cloud.startTelemetry({ getPlayerCount: () =&gt; activePlayers });
+
+  // 1v1 Ranked / Wager Matchmaking
+  async function findOpponent() {
+    const ticket = await cloud.matchmaking.enqueue({
+      userId: player.userId,
+      username: player.username,
+      queueType: "1v1_RANKED",
+      rating: 1200
+    });
+    const { match } = await cloud.matchmaking.waitForMatch(ticket.ticketId);
+    console.log("Opponent found! Match ID:", match.matchId);
+  }
+
+  // Off-Chain Anti-Dupe Marketplace (gas-free atomic trades)
+  await cloud.marketplace.listItem({
+    sellerId: player.userId,
+    sellerName: player.username,
+    itemId: "cyber_katana_01",
+    price: 500
+  });
+&lt;/script&gt;</code></pre>
                 </div>
             </section>
 

@@ -97,7 +97,7 @@
             <!-- Get SDK Button -->
             <button onclick="openSdkModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center space-x-2 shadow-lg shadow-blue-600/30 border border-blue-400/40 transition-all active:scale-95">
                 <i class="fa-solid fa-code text-xs"></i>
-                <span>Roblox &amp; Minecraft SDK</span>
+                <span>SDKs (Roblox / MC / Web)</span>
             </button>
 
             <!-- Billing & Account Button -->
@@ -713,14 +713,18 @@
             </div>
 
             <!-- Engine Switcher Tabs -->
-            <div class="flex p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs">
+            <div class="flex p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs gap-1">
                 <button id="tabSdkRobloxBtn" onclick="switchSdkEngine('roblox')" class="flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-gamepad"></i>
-                    <span>Roblox (Luau SDK)</span>
+                    <span>Roblox (Luau)</span>
                 </button>
                 <button id="tabSdkMinecraftBtn" onclick="switchSdkEngine('minecraft')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-cubes"></i>
-                    <span>Minecraft (Paper / Spigot / Velocity)</span>
+                    <span>Minecraft (Java)</span>
+                </button>
+                <button id="tabSdkWebBtn" onclick="switchSdkEngine('web')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-brands fa-js"></i>
+                    <span>Web &amp; Web3 (JS)</span>
                 </button>
             </div>
 
@@ -812,6 +816,39 @@
                     </div>
                     <div class="pl-6">
                         <pre class="bg-[#0d1a3a]/90 p-3 rounded-lg border border-blue-500/25 font-mono text-[11px] text-slate-300 overflow-x-auto"><code id="modalMinecraftJavaSnippet">// Loading Java usage...</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3: Web, HTML5 & Web3 / Crypto Games (JavaScript SDK) -->
+            <div id="sdkPanelWeb" class="hidden space-y-4 text-xs">
+                <div class="p-3.5 rounded-xl bg-[#071129] border border-purple-500/30 space-y-2.5">
+                    <div class="font-bold text-purple-300 flex items-center space-x-2">
+                        <span class="w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center justify-center text-[11px] font-bold">1</span>
+                        <span>Include the BloxCloud Web SDK (HTML5, Three.js, Phaser, Telegram &amp; Web3)</span>
+                    </div>
+                    <p class="text-blue-200 pl-7">
+                        Drop our zero-dependency script straight into your <code class="text-purple-300 bg-blue-950/80 px-1.5 py-0.5 rounded border border-purple-500/30 font-mono">index.html</code>, or download <code class="font-mono text-purple-300">BloxCloud.js</code> for Vite/Node.js. Includes auto-detection for <strong>Phantom (Solana)</strong>, <strong>MetaMask (EVM)</strong>, and <strong>Telegram Mini-Apps</strong>.
+                    </p>
+                    <div class="flex items-center space-x-3 pl-7">
+                        <a href="/api/v1/sdk/web/download" download class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 hover:from-purple-500 hover:to-fuchsia-400 text-white font-bold flex items-center space-x-2 transition-all shadow-md shadow-purple-600/30 border border-purple-400/30">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Download BloxCloud.js</span>
+                        </a>
+                        <button onclick="copyWebSdkCode()" class="px-3.5 py-1.5 rounded-lg bg-blue-950/70 hover:bg-slate-700 border border-blue-500/30 text-slate-200 font-semibold flex items-center space-x-1.5 transition-all">
+                            <i class="fa-regular fa-copy"></i>
+                            <span id="copyWebSdkBtnText">Copy Full JS SDK Code</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-[#081229]/90 border border-blue-500/25 space-y-2">
+                    <div class="font-bold text-purple-300 flex items-center space-x-1.5">
+                        <span class="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-[11px]">2</span>
+                        <span>Connect Your Web / Crypto Game in 3 Lines</span>
+                    </div>
+                    <div class="pl-6">
+                        <pre class="bg-[#0d1a3a]/90 p-3 rounded-lg border border-blue-500/25 font-mono text-[11px] text-purple-200 overflow-x-auto"><code id="modalWebJsSnippet">// Loading JS snippet...</code></pre>
                     </div>
                 </div>
             </div>
@@ -1009,6 +1046,28 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
             const mcJavaEl = document.getElementById('modalMinecraftJavaSnippet');
             if (mcCfgEl) mcCfgEl.innerText = mcConfig;
             if (mcJavaEl) mcJavaEl.innerText = mcJava;
+
+            const webJs = `<script src="${origin}/sdk/web.js"><\/script>
+<script>
+  const cloud = new BloxCloud({
+    apiKey: "${key}",
+    baseUrl: "${origin}"
+  });
+
+  // Auto-detect Phantom (Solana), MetaMask (EVM), Telegram, or Guest ID
+  const player = cloud.web3.detectPlayerIdentity();
+  cloud.startTelemetry({ getPlayerCount: () => 1 });
+
+  // Queue for 1v1 ranked / wager matchmaking
+  const ticket = await cloud.matchmaking.enqueue({
+    userId: player.userId,
+    username: player.username,
+    queueType: "1v1_RANKED",
+    rating: 1200
+  });
+<\/script>`;
+            const webJsEl = document.getElementById('modalWebJsSnippet');
+            if (webJsEl) webJsEl.innerText = webJs;
         }
 
         function switchAuthTab(tab) {
@@ -1414,7 +1473,7 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
                             <div class="p-3.5 rounded-xl bg-[#0d1a3a]/90 border ${s.health === 'DEGRADED' ? 'border-amber-500/50 glow-amber' : 'border-blue-500/25'} space-y-2">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-1.5 truncate max-w-[165px]">
-                                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${s.engine === 'MINECRAFT' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-cyan-300 border border-blue-500/30'}">${s.engine === 'MINECRAFT' ? 'MC' : 'RBX'}</span>
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${s.engine === 'MINECRAFT' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : s.engine === 'WEB' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-cyan-300 border border-blue-500/30'}">${s.engine === 'MINECRAFT' ? 'MC' : s.engine === 'WEB' ? 'WEB' : 'RBX'}</span>
                                         <span class="font-mono text-cyan-400 text-xs font-bold truncate">${esc(s.jobId)}</span>
                                     </div>
                                     <span class="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${s.health === 'DEGRADED' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${esc(s.health)}</span>
@@ -1606,19 +1665,28 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
         function switchSdkEngine(engine) {
             const rPanel = document.getElementById('sdkPanelRoblox');
             const mPanel = document.getElementById('sdkPanelMinecraft');
+            const wPanel = document.getElementById('sdkPanelWeb');
             const rBtn = document.getElementById('tabSdkRobloxBtn');
             const mBtn = document.getElementById('tabSdkMinecraftBtn');
+            const wBtn = document.getElementById('tabSdkWebBtn');
+
+            const inactiveCls = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5';
+            rPanel.classList.add('hidden');
+            mPanel.classList.add('hidden');
+            if (wPanel) wPanel.classList.add('hidden');
+            rBtn.className = inactiveCls;
+            mBtn.className = inactiveCls;
+            if (wBtn) wBtn.className = inactiveCls;
 
             if (engine === 'minecraft') {
-                rPanel.classList.add('hidden');
                 mPanel.classList.remove('hidden');
                 mBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center space-x-1.5';
-                rBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5';
+            } else if (engine === 'web') {
+                if (wPanel) wPanel.classList.remove('hidden');
+                if (wBtn) wBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white shadow-md shadow-purple-600/30 transition-all flex items-center justify-center space-x-1.5';
             } else {
-                mPanel.classList.add('hidden');
                 rPanel.classList.remove('hidden');
                 rBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5';
-                mBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5';
             }
         }
 
@@ -1645,6 +1713,19 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
                 setTimeout(() => { btn.innerText = 'Copy Full Java Plugin Code'; }, 2500);
             } catch (e) {
                 alert("Failed to copy Minecraft plugin code: " + e.message);
+            }
+        }
+
+        async function copyWebSdkCode() {
+            try {
+                const res = await fetch(`${API}/sdk/web/code`);
+                const data = await res.json();
+                navigator.clipboard.writeText(data.code);
+                const btn = document.getElementById('copyWebSdkBtnText');
+                btn.innerText = 'Copied to Clipboard!';
+                setTimeout(() => { btn.innerText = 'Copy Full JS SDK Code'; }, 2500);
+            } catch (e) {
+                alert("Failed to copy Web SDK code: " + e.message);
             }
         }
 
