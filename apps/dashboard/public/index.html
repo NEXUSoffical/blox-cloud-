@@ -1053,19 +1053,18 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
 
             const webJs = `<script src="${liveOrigin}/sdk/web.js"><\/script>
 <script>
+  // Safe Public Client Key (never exposes your secret bc_live_ server key!)
   const cloud = new BloxCloud({
-    apiKey: "${currentUser.apiKey}",
+    publicKey: "${currentUser.publicKey || 'bc_pub_your_public_key'}",
     baseUrl: "${liveOrigin}"
   });
 
-  // Auto-detect Phantom (Solana), MetaMask (EVM), Telegram, or Guest ID
-  const player = cloud.web3.detectPlayerIdentity();
-  cloud.startTelemetry({ getPlayerCount: () => 1 });
+  // 1. Auto-detect Phantom (Solana), MetaMask (EVM), Telegram, or Guest ID
+  //    and mint an HMAC-signed player session token
+  await cloud.auth.connectPlayer();
 
-  // Queue for 1v1 ranked / wager matchmaking
+  // 2. Queue for 1v1 ranked / wager matchmaking (identity locked to signed token)
   const ticket = await cloud.matchmaking.enqueue({
-    userId: player.userId,
-    username: player.username,
     queueType: "1v1_RANKED",
     rating: 1200
   });

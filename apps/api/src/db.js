@@ -199,6 +199,11 @@ class PersistentDB {
         return this.data.users.find(u => u.apiKey === apiKey) || null;
     }
 
+    findUserByPublicKey(publicKey) {
+        if (!publicKey) return null;
+        return this.data.users.find(u => u.publicKey === publicKey) || null;
+    }
+
     saveUser(user) {
         const idx = this.data.users.findIndex(u => u.id === user.id);
         if (idx !== -1) {

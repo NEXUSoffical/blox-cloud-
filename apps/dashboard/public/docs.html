@@ -209,26 +209,23 @@ boolean purchased = BloxCloudPlugin.get().buyGlobalItem(buyer, "list_7d477c1b");
                 </p>
 
                 <div class="relative">
-                    <pre class="p-4 rounded-xl text-xs font-mono text-purple-300 overflow-x-auto"><code>&lt;!-- 1. Drop directly into your index.html (zero build tools required) --&gt;
+                    <pre class="p-4 rounded-xl text-xs font-mono text-purple-300 overflow-x-auto"><code>&lt;!-- 1. Drop directly into your index.html (uses your safe Public Client Key) --&gt;
 &lt;script src="https://bloxcloud.world/sdk/web.js"&gt;&lt;/script&gt;
 
 &lt;script&gt;
+  // Safe bc_pub_ key: never exposes your secret bc_live_ server key in DevTools!
   const cloud = new BloxCloud({
-    apiKey: "bc_live_your_api_key",
+    publicKey: "bc_pub_your_public_key",
     region: "GLOBAL"
   });
 
   // Auto-detects Phantom (Solana), MetaMask (EVM), Telegram Mini-App, or Guest ID
-  const player = cloud.web3.detectPlayerIdentity();
+  // and mints an HMAC-signed player token scoped strictly to that player
+  await cloud.auth.connectPlayer();
 
-  // Start automatic FPS & memory telemetry heartbeats
-  cloud.startTelemetry({ getPlayerCount: () =&gt; activePlayers });
-
-  // 1v1 Ranked / Wager Matchmaking
+  // 1v1 Ranked / Wager Matchmaking (identity locked to signed token)
   async function findOpponent() {
     const ticket = await cloud.matchmaking.enqueue({
-      userId: player.userId,
-      username: player.username,
       queueType: "1v1_RANKED",
       rating: 1200
     });
@@ -238,8 +235,6 @@ boolean purchased = BloxCloudPlugin.get().buyGlobalItem(buyer, "list_7d477c1b");
 
   // Off-Chain Anti-Dupe Marketplace (gas-free atomic trades)
   await cloud.marketplace.listItem({
-    sellerId: player.userId,
-    sellerName: player.username,
     itemId: "cyber_katana_01",
     price: 500
   });

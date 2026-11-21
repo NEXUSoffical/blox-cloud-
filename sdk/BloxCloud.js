@@ -24,17 +24,24 @@
     class BloxCloud {
         /**
          * @param {Object} config
-         * @param {string} config.apiKey - Your BloxCloud Studio API key (from dashboard)
+         * @param {string} [config.publicKey] - Safe Public Client Key (bc_pub_...) for browser / Web3 games
+         * @param {string} [config.apiKey] - Secret Server API key (bc_live_...) for Node.js/Bun backends ONLY
+         * @param {string} [config.playerToken] - Optional pre-minted HMAC-signed player token (bcp_...)
          * @param {string} [config.baseUrl='https://bloxcloud.world'] - BloxCloud API URL
          * @param {string} [config.serverId] - Unique identifier for this game instance/room
          * @param {string} [config.region='GLOBAL'] - Server region (e.g. EU, US-EAST, ASIA)
          * @param {boolean} [config.debug=false] - Enable verbose console logging
          */
         constructor(config = {}) {
-            if (!config.apiKey) {
-                throw new Error('[BloxCloud] Missing required "apiKey" in constructor.');
+            if (!config.publicKey && !config.apiKey && !config.playerToken) {
+                throw new Error('[BloxCloud] Provide "publicKey" (browser) or "apiKey" (Node server).');
             }
-            this.apiKey = config.apiKey;
+            if (typeof window !== 'undefined' && config.apiKey && String(config.apiKey).startsWith('bc_live_')) {
+                console.warn('[BloxCloud Security] Do not expose your secret bc_live_ apiKey in browser code! Use your safe publicKey (bc_pub_...) + connectPlayer() instead.');
+            }
+            this.publicKey = config.publicKey || null;
+            this.apiKey = config.apiKey || null;
+            this.playerToken = config.playerToken || null;
             this.baseUrl = (config.baseUrl || 'https://bloxcloud.world').replace(/\/+$/, '');
             this.serverId = config.serverId || ('web-' + Math.random().toString(36).slice(2, 10));
             this.region = config.region || 'GLOBAL';
@@ -46,6 +53,11 @@
             this._lastBroadcastId = null;
 
             // Attach modular namespaces
+            this.auth = {
+                connectPlayer: (identity) => this._connectPlayer(identity),
+                setPlayerToken: (token) => { this.playerToken = token; },
+            };
+
             this.matchmaking = {
                 enqueue: (params) => this._enqueueMatch(params),
                 leave: (params) => this._leaveMatch(params),
@@ -79,12 +91,24 @@
             }
         }
 
+        async _connectPlayer(identity = null) {
+            const target = identity || this._detectWeb3Identity();
+            const data = await this._request('POST', '/api/v1/client/session', {
+                playerId: target.playerId || target.userId,
+                username: target.username || target.playerId || target.userId,
+            });
+            this.playerToken = data.playerToken;
+            return data;
+        }
+
         async _request(method, endpoint, body = null) {
             const url = `${this.baseUrl}${endpoint}`;
             const headers = {
                 'Content-Type': 'application/json',
-                'x-api-key': this.apiKey,
             };
+            if (this.apiKey) headers['x-api-key'] = this.apiKey;
+            if (this.publicKey) headers['x-public-key'] = this.publicKey;
+            if (this.playerToken) headers['x-player-token'] = this.playerToken;
 
             const options = { method, headers };
             if (body !== null && method !== 'GET') {

@@ -30,6 +30,7 @@ class AuthManager {
         const salt = crypto.randomBytes(16).toString('hex');
         const passwordHash = await this._hashPassword(password, salt);
         const apiKey = 'bc_live_' + crypto.randomBytes(16).toString('hex');
+        const publicKey = 'bc_pub_' + crypto.randomBytes(16).toString('hex');
 
         const user = {
             id: userId,
@@ -39,6 +40,7 @@ class AuthManager {
             salt,
             passwordHash,
             apiKey,
+            publicKey,
             plan: 'FREE',
             planStatus: 'ACTIVE',
             createdAt: Date.now(),
@@ -90,6 +92,68 @@ class AuthManager {
         return db.findUserByApiKey(apiKey) || null;
     }
 
+    getUserByPublicKey(publicKey) {
+        if (!publicKey) return null;
+        return db.findUserByPublicKey(publicKey) || null;
+    }
+
+    /**
+     * Mint an HMAC-SHA256 signed Player Session Token scoped strictly to (studioId, playerId).
+     * Signed with the studio's secret apiKey so rotating the studio key invalidates old tokens.
+     */
+    signPlayerToken(studioUser, playerId, username, ttlMs = 24 * 60 * 60 * 1000) {
+        const payload = {
+            sid: studioUser.id,
+            pid: String(playerId),
+            usr: String(username || playerId).slice(0, 64),
+            exp: Date.now() + ttlMs,
+        };
+        const payloadB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+        const sig = crypto
+            .createHmac('sha256', studioUser.apiKey)
+            .update(payloadB64)
+            .digest('base64url');
+        return `bcp_${payloadB64}.${sig}`;
+    }
+
+    /**
+     * Verify a Player Session Token and return { studio, playerId, username } or null.
+     */
+    verifyPlayerToken(token) {
+        if (!token || typeof token !== 'string' || !token.startsWith('bcp_')) return null;
+        const raw = token.slice(4);
+        const dotIdx = raw.indexOf('.');
+        if (dotIdx === -1) return null;
+
+        const payloadB64 = raw.slice(0, dotIdx);
+        const providedSig = raw.slice(dotIdx + 1);
+        let payload;
+        try {
+            payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+        } catch (e) {
+            return null;
+        }
+        if (!payload || !payload.sid || !payload.pid || !payload.exp || Date.now() > payload.exp) {
+            return null;
+        }
+        const studioUser = db.findUserById(payload.sid);
+        if (!studioUser || !studioUser.apiKey) return null;
+
+        const expectedSig = crypto
+            .createHmac('sha256', studioUser.apiKey)
+            .update(payloadB64)
+            .digest('base64url');
+        const a = Buffer.from(providedSig);
+        const b = Buffer.from(expectedSig);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+        return {
+            studio: this._getSafeUser(studioUser),
+            playerId: payload.pid,
+            username: payload.usr || payload.pid,
+        };
+    }
+
     regenerateApiKey(userId) {
         const user = db.findUserById(userId);
         if (!user) return null;
@@ -111,12 +175,18 @@ class AuthManager {
     }
 
     _getSafeUser(user) {
+        // Lazily backfill publicKey for existing studio accounts
+        if (!user.publicKey) {
+            user.publicKey = 'bc_pub_' + crypto.randomBytes(16).toString('hex');
+            db.saveUser(user);
+        }
         return {
             id: user.id,
             email: user.email,
             username: user.username,
             studioName: user.studioName,
             apiKey: user.apiKey,
+            publicKey: user.publicKey,
             plan: user.plan,
             planStatus: user.planStatus,
             createdAt: user.createdAt,

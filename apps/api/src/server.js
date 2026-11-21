@@ -21,6 +21,9 @@ const db = require('./db');
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Trust Render / reverse proxy so req.ip cannot be spoofed via raw X-Forwarded-For headers
+app.set('trust proxy', 1);
+
 app.use(cors());
 // Keep the exact raw request bytes so webhook signatures can be verified correctly
 app.use(express.json({
@@ -28,8 +31,16 @@ app.use(express.json({
     verify: (req, res, buf) => { req.rawBody = buf; },
 }));
 
+// Standard security headers
+app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('X-Frame-Options', 'SAMEORIGIN');
+    res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
 // -----------------------------------------------------------------------------
-// SIMPLE IN-MEMORY RATE LIMITER (per IP + API key)
+// SIMPLE IN-MEMORY RATE LIMITER (per trusted IP + key)
 // -----------------------------------------------------------------------------
 const rateBuckets = new Map();
 const RATE_WINDOW_MS = 60 * 1000;
@@ -37,7 +48,8 @@ const RATE_MAX = Number(process.env.RATE_LIMIT_PER_MIN || 600);
 setInterval(() => rateBuckets.clear(), RATE_WINDOW_MS);
 
 app.use('/api/', (req, res, next) => {
-    const id = (req.headers['x-api-key'] || '') + '|' + (req.headers['x-forwarded-for'] || req.ip);
+    const keyId = req.headers['x-api-key'] || req.headers['x-public-key'] || '';
+    const id = keyId + '|' + (req.ip || 'unknown');
     const count = (rateBuckets.get(id) || 0) + 1;
     rateBuckets.set(id, count);
     if (count > RATE_MAX) {
@@ -88,7 +100,7 @@ function requireSession(req, res, next) {
     next();
 }
 
-// Game server (Roblox SDK) routes: require a valid studio API key.
+// Game server (Roblox / Minecraft / Node backend) routes: require a valid secret studio API key.
 // A logged-in dashboard session is also accepted so the dashboard can call the same endpoints.
 function requireGameKey(req, res, next) {
     const apiKey = req.headers['x-api-key'];
@@ -96,6 +108,7 @@ function requireGameKey(req, res, next) {
         const owner = auth.getUserByApiKey(apiKey);
         if (owner) {
             req.user = auth._getSafeUser(owner);
+            req.isServerAuth = true;
             return next();
         }
         return res.status(401).json({ error: 'Invalid API key.' });
@@ -103,9 +116,42 @@ function requireGameKey(req, res, next) {
     const user = getAuthUser(req);
     if (user) {
         req.user = user;
+        req.isServerAuth = true;
         return next();
     }
     return res.status(401).json({ error: 'Unauthorized: missing x-api-key header.' });
+}
+
+// Player-scoped routes (matchmaking, marketplace): accepts secret x-api-key (server),
+// dashboard session, OR a cryptographically signed x-player-token (browser/Web3 client).
+function requireClientOrServerAuth(req, res, next) {
+    const playerToken = req.headers['x-player-token'];
+    if (playerToken) {
+        const verified = auth.verifyPlayerToken(playerToken);
+        if (verified) {
+            req.user = verified.studio;
+            req.player = { playerId: verified.playerId, username: verified.username };
+            req.isServerAuth = false;
+            return next();
+        }
+        return res.status(401).json({ error: 'Invalid or expired x-player-token.' });
+    }
+    return requireGameKey(req, res, next);
+}
+
+// Public-readable routes (LiveOps flags, marketplace listings): also accepts x-public-key (bc_pub_...)
+function requirePublicReadOrServerAuth(req, res, next) {
+    const pubKey = req.headers['x-public-key'];
+    if (pubKey) {
+        const owner = auth.getUserByPublicKey(pubKey);
+        if (owner) {
+            req.user = auth._getSafeUser(owner);
+            req.isServerAuth = false;
+            return next();
+        }
+        return res.status(401).json({ error: 'Invalid x-public-key.' });
+    }
+    return requireClientOrServerAuth(req, res, next);
 }
 
 // Platform-owner-only routes (e.g. full data reset)
@@ -316,67 +362,7 @@ app.post('/api/v1/billing/polar/webhook', (req, res) => {
     }
 });
 
-// Lemon Squeezy Webhook Listener (legacy compatibility)
-app.post('/api/v1/billing/lemonsqueezy/webhook', (req, res) => {
-    try {
-        const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
-        if (!secret) {
-            console.error('[BloxCloud LemonSqueezy] Webhook rejected: LEMONSQUEEZY_WEBHOOK_SECRET is not set.');
-            return res.status(503).json({ error: 'Webhook not configured' });
-        }
-
-        const signature = req.headers['x-signature'];
-        const rawBody = req.rawBody;
-        if (!rawBody || !billing.verifyWebhookSignature(rawBody, signature, secret)) {
-            return res.status(401).json({ error: 'Invalid webhook signature' });
-        }
-
-        const payload = req.body;
-        const eventName = payload.meta && payload.meta.event_name;
-        const customData = payload.meta && payload.meta.custom_data;
-
-        if (customData && customData.user_id) {
-            const userId = customData.user_id;
-            // Derive the plan from the product actually purchased (signed by Lemon Squeezy),
-            // never from user-editable custom checkout data.
-            const attrs = (payload.data && payload.data.attributes) || {};
-            const productName = attrs.product_name || (attrs.first_order_item && attrs.first_order_item.product_name) || '';
-            const planId = billing.planIdFromProductName(productName);
-            if (!planId && !(eventName === 'subscription_cancelled' || eventName === 'subscription_expired')) {
-                console.error(`[BloxCloud LemonSqueezy] Unknown product "${productName}" in ${eventName}`);
-                return res.json({ received: true, ignored: true });
-            }
-
-            const subStatus = String(attrs.status || '').toLowerCase();
-            const isEnded = eventName === 'subscription_expired' ||
-                (eventName === 'subscription_updated' && (subStatus === 'expired' || subStatus === 'unpaid'));
-
-            if (isEnded) {
-                auth.updateUserPlan(userId, 'FREE');
-                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId: 'FREE' }, userId);
-                console.log(`[BloxCloud LemonSqueezy] User ${userId} subscription ended (${eventName}/${subStatus})`);
-            } else if (eventName === 'subscription_created' || eventName === 'order_created' || eventName === 'subscription_updated') {
-                auth.updateUserPlan(userId, planId);
-                const user = db.findUserById(userId);
-                if (user) {
-                    billing.createSubscription(user, planId, 'LEMON_SQUEEZY');
-                }
-                broadcastToDashboard('SUBSCRIPTION_UPDATED', { userId, planId }, userId);
-                console.log(`[BloxCloud LemonSqueezy] User ${userId} upgraded to ${planId}`);
-            } else if (eventName === 'subscription_cancelled') {
-                // Customer keeps access until the paid period ends; downgrade happens on subscription_expired.
-                console.log(`[BloxCloud LemonSqueezy] User ${userId} cancelled; access continues until period end`);
-            }
-        }
-
-        res.json({ received: true });
-    } catch (e) {
-        console.error('[BloxCloud LemonSqueezy Webhook Error]:', e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// Plan changes are ONLY applied by the verified Lemon Squeezy webhook above.
+// Plan changes are ONLY applied by the verified Polar.sh webhook above.
 // This endpoint is kept solely for downgrading to the Free plan.
 app.post('/api/v1/billing/subscribe', (req, res) => {
     const user = getAuthUser(req);
@@ -574,10 +560,47 @@ app.post('/api/v1/reset', requireAdmin, (req, res) => {
     res.json({ success: true, message: 'All live data has been reset to zero.' });
 });
 
+// -----------------------------------------------------------------------------
+// WEB / WEB3 CLIENT PLAYER SESSION TOKENS (Safe Browser Auth — No Secret Key Exposure)
+// -----------------------------------------------------------------------------
+
+// Pure browser / HTML5 / Web3 games authenticate with their public key (bc_pub_...)
+// to obtain an HMAC-signed player session token scoped strictly to one playerId.
+app.post('/api/v1/client/session', (req, res) => {
+    const pubKey = req.headers['x-public-key'];
+    const studioUser = auth.getUserByPublicKey(pubKey);
+    if (!studioUser) {
+        return res.status(401).json({ error: 'Invalid or missing x-public-key header.' });
+    }
+    const { playerId, username } = req.body || {};
+    if (!playerId || String(playerId).trim().length < 2) {
+        return res.status(400).json({ error: 'Valid playerId is required.' });
+    }
+    const cleanId = String(playerId).trim().slice(0, 128);
+    const cleanName = String(username || cleanId).trim().slice(0, 64);
+    const playerToken = auth.signPlayerToken(studioUser, cleanId, cleanName);
+    res.json({ success: true, playerToken, playerId: cleanId, username: cleanName });
+});
+
+// Backend-verified player token minting (Web3 servers verify wallet signature first, then mint token)
+app.post('/api/v1/auth/player-token', requireGameKey, (req, res) => {
+    const studioUser = db.findUserById(req.user.id);
+    if (!studioUser) return res.status(404).json({ error: 'Studio not found.' });
+    const { playerId, username, ttlSeconds } = req.body || {};
+    if (!playerId) return res.status(400).json({ error: 'playerId is required.' });
+    const ttlMs = Math.min(7 * 24 * 3600, Math.max(60, Number(ttlSeconds || 86400))) * 1000;
+    const playerToken = auth.signPlayerToken(studioUser, playerId, username, ttlMs);
+    res.json({ success: true, playerToken, playerId: String(playerId) });
+});
+
 // MATCHMAKING ENDPOINTS
-app.post('/api/v1/matchmaking/queue', requireGameKey, (req, res) => {
+app.post('/api/v1/matchmaking/queue', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
-    const { userId, username, queueType, rating, partyMembers, region } = req.body;
+    const body = req.body || {};
+    // If called from a browser client (x-player-token), force identity to the signed token's playerId
+    const userId = req.player ? req.player.playerId : body.userId;
+    const username = req.player ? req.player.username : body.username;
+    const { queueType, rating, partyMembers, region } = body;
     if (!userId || !username) {
         return res.status(400).json({ error: 'Missing userId or username' });
     }
@@ -596,29 +619,34 @@ app.post('/api/v1/matchmaking/queue', requireGameKey, (req, res) => {
     res.json(ticket);
 });
 
-app.post('/api/v1/matchmaking/leave', requireGameKey, (req, res) => {
+app.post('/api/v1/matchmaking/leave', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
-    const { userId, ticketId } = req.body;
+    const body = req.body || {};
+    const userId = req.player ? req.player.playerId : body.userId;
+    const ticketId = req.player ? undefined : body.ticketId;
     const success = matchmaker.dequeue(userId, ticketId, studioId);
     res.json({ success });
 });
 
-app.get('/api/v1/matchmaking/ticket/:ticketId', requireGameKey, (req, res) => {
+app.get('/api/v1/matchmaking/ticket/:ticketId', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
     const ticket = matchmaker.getTicket(req.params.ticketId, studioId);
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    if (req.player && String(ticket.userId) !== String(req.player.playerId)) {
+        return res.status(403).json({ error: 'Forbidden: ticket belongs to another player.' });
+    }
     res.json(ticket);
 });
 
-app.get('/api/v1/matchmaking/match/:matchId', requireGameKey, (req, res) => {
+app.get('/api/v1/matchmaking/match/:matchId', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
     const match = matchmaker.getMatch(req.params.matchId, studioId);
     if (!match) return res.status(404).json({ error: 'Match not found' });
     res.json(match);
 });
 
-// Coordinate a real Roblox TeleportService:ReserveServer() access code across matched servers
-app.post('/api/v1/matchmaking/match/:matchId/server-code', requireGameKey, (req, res) => {
+// Coordinate a real Roblox TeleportService:ReserveServer() access code or WebRTC/room ID across matched servers/players
+app.post('/api/v1/matchmaking/match/:matchId/server-code', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
     const { robloxAccessCode } = req.body;
     const result = matchmaker.claimOrSetServerCode(req.params.matchId, robloxAccessCode, studioId);
@@ -635,7 +663,7 @@ app.get('/api/v1/matchmaking/stats', requireSession, (req, res) => {
 });
 
 // LIVEOPS & FEATURE FLAGS
-app.get('/api/v1/liveops/config', requireGameKey, (req, res) => {
+app.get('/api/v1/liveops/config', requirePublicReadOrServerAuth, (req, res) => {
     const studioId = req.user.id;
     res.json(liveops.getAllConfig(studioId));
 });
@@ -687,9 +715,12 @@ app.post('/api/v1/liveops/broadcast/clear', requireSession, (req, res) => {
 });
 
 // MARKETPLACE & AUCTION HOUSE
-app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
+app.post('/api/v1/marketplace/list', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
-    const { sellerId, sellerName, itemId, itemData, price } = req.body;
+    const body = req.body || {};
+    const sellerId = req.player ? req.player.playerId : body.sellerId;
+    const sellerName = req.player ? req.player.username : body.sellerName;
+    const { itemId, itemData, price } = body;
     const numPrice = Math.floor(Number(price));
     if (!sellerId || !itemId || !Number.isFinite(numPrice) || numPrice <= 0) {
         return res.status(400).json({ error: 'Valid sellerId, itemId, and a positive integer price are required' });
@@ -709,9 +740,12 @@ app.post('/api/v1/marketplace/list', requireGameKey, (req, res) => {
     res.json(listing);
 });
 
-app.post('/api/v1/marketplace/buy', requireGameKey, (req, res) => {
+app.post('/api/v1/marketplace/buy', requireClientOrServerAuth, (req, res) => {
     const studioId = req.user.id;
-    const { buyerId, buyerName, listingId } = req.body;
+    const body = req.body || {};
+    const buyerId = req.player ? req.player.playerId : body.buyerId;
+    const buyerName = req.player ? req.player.username : body.buyerName;
+    const { listingId } = body;
     if (!buyerId || !listingId) {
         return res.status(400).json({ error: 'buyerId and listingId required' });
     }
@@ -725,7 +759,7 @@ app.post('/api/v1/marketplace/buy', requireGameKey, (req, res) => {
     res.json(result);
 });
 
-app.get('/api/v1/marketplace/listings', requireGameKey, (req, res) => {
+app.get('/api/v1/marketplace/listings', requirePublicReadOrServerAuth, (req, res) => {
     const studioId = req.user.id;
     res.json({ listings: marketplace.getListings(studioId) });
 });
