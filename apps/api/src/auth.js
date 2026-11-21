@@ -36,10 +36,15 @@ const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
 // One-time Web3 login challenges (nonce -> { studioId, walletAddress, message, expiresAt })
 const web3Challenges = new Map();
+// Password reset tokens (token -> { userId, email, expiresAt })
+const resetTokens = new Map();
 setInterval(() => {
     const now = Date.now();
     for (const [k, v] of web3Challenges.entries()) {
         if (v.expiresAt < now) web3Challenges.delete(k);
+    }
+    for (const [k, v] of resetTokens.entries()) {
+        if (v.expiresAt < now) resetTokens.delete(k);
     }
 }, 60 * 1000).unref();
 
@@ -114,6 +119,88 @@ class AuthManager {
     logout(token) {
         db.deleteSession(token);
         return true;
+    }
+
+    /**
+     * Request a password reset. Creates a 15-minute secure reset token.
+     */
+    requestPasswordReset(email) {
+        const cleanEmail = (email || '').trim().toLowerCase();
+        const user = db.findUserByEmail(cleanEmail);
+        if (!user) {
+            // Return success even if not found to prevent user enumeration
+            return { success: true, message: 'If an account exists with this email, a reset code has been generated.' };
+        }
+
+        // 6-digit verification code + token
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const token = crypto.randomBytes(24).toString('hex');
+        const expiresAt = Date.now() + 15 * 60 * 1000;
+
+        resetTokens.set(token, {
+            userId: user.id,
+            email: user.email,
+            resetCode,
+            expiresAt,
+        });
+
+        // Also index by 6-digit code for fast form entry
+        resetTokens.set(`code_${cleanEmail}_${resetCode}`, {
+            token,
+            userId: user.id,
+            expiresAt,
+        });
+
+        console.log(`[BloxCloud Auth] Password reset requested for ${cleanEmail}. Verification Code: ${resetCode}`);
+
+        return {
+            success: true,
+            message: 'Reset verification code created (valid for 15 minutes).',
+            resetToken: token,
+            resetCode, // Returned for UI / direct display
+        };
+    }
+
+    /**
+     * Complete password reset using token or 6-digit code.
+     */
+    async resetPassword(email, resetCodeOrToken, newPassword) {
+        if (!newPassword || newPassword.length < 6) {
+            return { success: false, error: 'New password must be at least 6 characters.' };
+        }
+        const cleanEmail = (email || '').trim().toLowerCase();
+        const cleanCode = (resetCodeOrToken || '').trim();
+
+        let session = resetTokens.get(cleanCode);
+        if (!session) {
+            session = resetTokens.get(`code_${cleanEmail}_${cleanCode}`);
+        }
+
+        if (!session || Date.now() > session.expiresAt) {
+            return { success: false, error: 'Invalid or expired reset code. Please request a new one.' };
+        }
+
+        const user = db.findUserById(session.userId);
+        if (!user) {
+            return { success: false, error: 'User account not found.' };
+        }
+
+        const salt = crypto.randomBytes(16).toString('hex');
+        const passwordHash = await this._hashPassword(newPassword, salt);
+        user.salt = salt;
+        user.passwordHash = passwordHash;
+        db.saveUser(user);
+
+        // Invalidate reset tokens for this user
+        for (const [k, v] of resetTokens.entries()) {
+            if (v.userId === user.id) resetTokens.delete(k);
+        }
+
+        // Generate fresh login session
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        db.createSession(sessionToken, user.id);
+
+        return { success: true, user: this._getSafeUser(user), token: sessionToken };
     }
 
     getUserByToken(token) {

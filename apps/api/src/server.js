@@ -223,6 +223,29 @@ app.post('/api/v1/auth/login', async (req, res) => {
     }
 });
 
+app.post('/api/v1/auth/forgot-password', (req, res) => {
+    const { email } = req.body || {};
+    if (!email) {
+        return res.status(400).json({ success: false, error: 'Email is required.' });
+    }
+    const result = auth.requestPasswordReset(email);
+    res.json(result);
+});
+
+app.post('/api/v1/auth/reset-password', async (req, res) => {
+    const { email, code, newPassword } = req.body || {};
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ success: false, error: 'Email, verification code, and new password are required.' });
+    }
+    try {
+        const result = await auth.resetPassword(email, code, newPassword);
+        if (!result.success) return res.status(400).json(result);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'Error resetting password.' });
+    }
+});
+
 app.post('/api/v1/auth/logout', (req, res) => {
     const authHeader = req.headers['authorization'];
     if (authHeader) {

@@ -510,7 +510,10 @@
                     <input id="loginEmail" type="email" required placeholder="developer@studio.com" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white placeholder-blue-300/40 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 outline-none transition-all">
                 </div>
                 <div>
-                    <label class="block text-blue-200 font-semibold mb-1.5">Password</label>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-blue-200 font-semibold">Password</label>
+                        <button type="button" onclick="openForgotPasswordView()" class="text-[11px] text-cyan-300 hover:text-white transition-colors">Forgot Password?</button>
+                    </div>
                     <input id="loginPassword" type="password" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white placeholder-blue-300/40 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 outline-none transition-all">
                 </div>
                 <div id="loginError" class="hidden text-rose-300 bg-rose-950/40 border border-rose-500/40 px-3 py-2 rounded-lg text-xs"></div>
@@ -518,6 +521,47 @@
                     Sign In to Dashboard
                 </button>
             </form>
+
+            <!-- Forgot Password Step 1: Request Code -->
+            <div id="forgotPwRequestForm" class="hidden space-y-4 text-xs">
+                <div class="p-3 rounded-xl bg-blue-950/60 border border-blue-500/30 text-blue-200 text-xs">
+                    Enter your developer email below. We'll generate a 15-minute verification code to reset your password.
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-semibold mb-1.5">Your Account Email</label>
+                    <input id="forgotEmail" type="email" required placeholder="developer@studio.com" class="w-full px-3.5 py-2.5 rounded-xl bg-[#071129] border border-blue-500/40 text-white placeholder-blue-300/40 focus:border-cyan-400 outline-none transition-all">
+                </div>
+                <div id="forgotReqError" class="hidden text-rose-300 bg-rose-950/40 border border-rose-500/40 px-3 py-2 rounded-lg text-xs"></div>
+                <div id="forgotReqSuccess" class="hidden text-emerald-300 bg-emerald-950/40 border border-emerald-500/40 px-3 py-2 rounded-lg text-xs"></div>
+                <button type="button" onclick="handleForgotPasswordRequest()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 font-bold text-white text-xs transition-all">
+                    Send Reset Code
+                </button>
+                <div class="text-center pt-1">
+                    <button type="button" onclick="switchAuthTab('signin')" class="text-blue-300 hover:text-white transition-colors">← Back to Sign In</button>
+                </div>
+            </div>
+
+            <!-- Forgot Password Step 2: Enter Code & New Password -->
+            <div id="forgotPwResetForm" class="hidden space-y-3.5 text-xs">
+                <div class="p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-200 text-xs">
+                    Enter the 6-digit code and your new password.
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-semibold mb-1">6-Digit Verification Code</label>
+                    <input id="resetCodeInput" type="text" maxlength="6" placeholder="123456" class="w-full px-3.5 py-2 rounded-xl bg-[#071129] border border-blue-500/40 text-white font-mono text-center tracking-widest text-base focus:border-cyan-400 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-blue-200 font-semibold mb-1">New Password (Min 6 chars)</label>
+                    <input id="resetNewPassword" type="password" minlength="6" placeholder="••••••••" class="w-full px-3.5 py-2 rounded-xl bg-[#071129] border border-blue-500/40 text-white placeholder-blue-300/40 focus:border-cyan-400 outline-none transition-all">
+                </div>
+                <div id="resetError" class="hidden text-rose-300 bg-rose-950/40 border border-rose-500/40 px-3 py-2 rounded-lg text-xs"></div>
+                <button type="button" onclick="handlePasswordResetSubmit()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 font-bold text-white text-xs transition-all shadow-md shadow-emerald-600/30">
+                    Save New Password &amp; Log In
+                </button>
+                <div class="text-center pt-1">
+                    <button type="button" onclick="switchAuthTab('signin')" class="text-blue-300 hover:text-white transition-colors">Cancel</button>
+                </div>
+            </div>
 
             <!-- Sign Up Form -->
             <form id="signUpForm" onsubmit="handleSignUp(event)" class="hidden space-y-3.5 text-xs">
@@ -1150,23 +1194,122 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
         function switchAuthTab(tab) {
             const signInForm = document.getElementById('signInForm');
             const signUpForm = document.getElementById('signUpForm');
+            const forgotReqForm = document.getElementById('forgotPwRequestForm');
+            const forgotResetForm = document.getElementById('forgotPwResetForm');
             const tabSignInBtn = document.getElementById('tabSignInBtn');
             const tabSignUpBtn = document.getElementById('tabSignUpBtn');
 
             // Clear any previous error messages
             document.getElementById('loginError').classList.add('hidden');
             document.getElementById('signUpError').classList.add('hidden');
+            if (forgotReqForm) forgotReqForm.classList.add('hidden');
+            if (forgotResetForm) forgotResetForm.classList.add('hidden');
 
             if (tab === 'signin') {
                 signInForm.classList.remove('hidden');
                 signUpForm.classList.add('hidden');
                 tabSignInBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all';
                 tabSignUpBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all';
-            } else {
+            } else if (tab === 'signup') {
                 signInForm.classList.add('hidden');
                 signUpForm.classList.remove('hidden');
                 tabSignUpBtn.className = 'flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all';
                 tabSignInBtn.className = 'flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all';
+            }
+        }
+
+        function openForgotPasswordView() {
+            document.getElementById('signInForm').classList.add('hidden');
+            document.getElementById('signUpForm').classList.add('hidden');
+            document.getElementById('forgotPwResetForm').classList.add('hidden');
+            const reqForm = document.getElementById('forgotPwRequestForm');
+            reqForm.classList.remove('hidden');
+            const loginEmail = document.getElementById('loginEmail').value.trim();
+            if (loginEmail) {
+                document.getElementById('forgotEmail').value = loginEmail;
+            }
+        }
+
+        async function handleForgotPasswordRequest() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const errDiv = document.getElementById('forgotReqError');
+            const succDiv = document.getElementById('forgotReqSuccess');
+            errDiv.classList.add('hidden');
+            succDiv.classList.add('hidden');
+
+            if (!email) {
+                errDiv.innerText = 'Please enter your email.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errDiv.innerText = data.error || 'Failed to request password reset.';
+                    errDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // Transition to reset code entry
+                document.getElementById('forgotPwRequestForm').classList.add('hidden');
+                document.getElementById('forgotPwResetForm').classList.remove('hidden');
+                if (data.resetCode) {
+                    document.getElementById('resetCodeInput').value = data.resetCode;
+                }
+            } catch (err) {
+                errDiv.innerText = 'Connection error: ' + err.message;
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handlePasswordResetSubmit() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const code = document.getElementById('resetCodeInput').value.trim();
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const errDiv = document.getElementById('resetError');
+            errDiv.classList.add('hidden');
+
+            if (!code || code.length < 6) {
+                errDiv.innerText = 'Please enter the 6-digit verification code.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+            if (!newPassword || newPassword.length < 6) {
+                errDiv.innerText = 'New password must be at least 6 characters.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code, newPassword })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    errDiv.innerText = data.error || 'Failed to reset password.';
+                    errDiv.classList.remove('hidden');
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('bloxcloud_token', authToken);
+                currentUser = data.user;
+                updateUserUI();
+                document.getElementById('authModal').classList.add('hidden');
+                initWebSocket();
+                fetchDashboardData();
+                alert('Password reset successfully! You are now logged in.');
+            } catch (err) {
+                errDiv.innerText = 'Connection error: ' + err.message;
+                errDiv.classList.remove('hidden');
             }
         }
 
