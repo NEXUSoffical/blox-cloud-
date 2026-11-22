@@ -1059,7 +1059,7 @@ app.get('/api/v1/generator/roblox/download/:id', (req, res) => {
 wss.on('connection', (ws, req) => {
     // Public 3D Multiplayer World Showcase (/ws/world)
     if (req.url && req.url.startsWith('/ws/world')) {
-        return worldEngine.handleConnection(ws);
+        return worldEngine.handleConnection(ws, req);
     }
 
     // Only logged-in dashboard sessions may subscribe to the live feed

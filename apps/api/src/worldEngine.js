@@ -6,10 +6,19 @@
  */
 
 const crypto = require('crypto');
+const db = require('./db');
+const auth = require('./auth');
 
 const NEON_COLORS = ['#3b82f6', '#06b6d4', '#a855f7', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
 const SKIN_TONES = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
 const ACCESSORIES = ['none', 'crown', 'visor', 'headphones', 'halo', 'tophat'];
+
+function deterministicPick(seedStr, list) {
+    let h = 0;
+    const s = String(seedStr || 'blox');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return list[Math.abs(h) % list.length];
+}
 
 class WorldEngine {
     constructor() {
@@ -89,21 +98,79 @@ class WorldEngine {
             .slice(0, 10);
     }
 
-    handleConnection(ws) {
+    _getStudioAvatar(user) {
+        const saved = user && user.avatar ? user.avatar : {};
+        const isPaid = user && user.plan && user.plan !== 'FREE';
+        return {
+            color: saved.color || deterministicPick(user.id + '_c', NEON_COLORS),
+            skinTone: saved.skinTone || deterministicPick(user.id + '_s', SKIN_TONES),
+            accessory: saved.accessory || (isPaid ? 'crown' : deterministicPick(user.id + '_a', ACCESSORIES)),
+        };
+    }
+
+    _getResidents() {
+        const activeUserIds = new Set();
+        for (const p of this.players.values()) {
+            if (p.userId) activeUserIds.add(p.userId);
+        }
+        const users = (db.data && Array.isArray(db.data.users)) ? db.data.users : [];
+        return users
+            .filter(u => u && u.id && !activeUserIds.has(u.id))
+            .slice(0, 40)
+            .map((u, idx) => {
+                const av = this._getStudioAvatar(u);
+                const angle = (idx / Math.max(1, Math.min(users.length, 40))) * Math.PI * 2 + 0.4;
+                const radius = 14 + ((idx * 7) % 28);
+                return {
+                    id: 'res_' + u.id,
+                    userId: u.id,
+                    name: (u.studioName || u.username || 'Studio').slice(0, 16),
+                    plan: u.plan || 'FREE',
+                    color: av.color,
+                    skinTone: av.skinTone,
+                    accessory: av.accessory,
+                    x: Number((Math.cos(angle) * radius).toFixed(2)),
+                    y: 0,
+                    z: Number((Math.sin(angle) * radius).toFixed(2)),
+                    isResident: true,
+                };
+            });
+    }
+
+    handleConnection(ws, req = null) {
+        // Check if visitor is signed into a real BloxCloud Studio account
+        let authedUser = null;
+        try {
+            if (req && req.url) {
+                const token = new URL(req.url, 'http://localhost').searchParams.get('token');
+                if (token) authedUser = auth.getUserByToken(token);
+            }
+        } catch (e) { /* guest fallback */ }
+
         const playerId = 'p_' + crypto.randomBytes(5).toString('hex');
         const angle = Math.random() * Math.PI * 2;
-        const spawnR = 12 + Math.random() * 6;
-        const player = {
-            id: playerId,
-            name: 'Player_' + playerId.slice(2, 6).toUpperCase(),
+        const spawnR = 11 + Math.random() * 5;
+        const fullDbUser = authedUser ? db.findUserById(authedUser.id) : null;
+        const av = fullDbUser ? this._getStudioAvatar(fullDbUser) : {
             color: NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)],
             skinTone: SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)],
             accessory: ACCESSORIES[Math.floor(Math.random() * ACCESSORIES.length)],
+        };
+
+        const player = {
+            id: playerId,
+            userId: authedUser ? authedUser.id : null,
+            name: authedUser
+                ? (authedUser.studioName || authedUser.username || 'Studio').slice(0, 16)
+                : 'Guest_' + playerId.slice(2, 6).toUpperCase(),
+            color: av.color,
+            skinTone: av.skinTone,
+            accessory: av.accessory,
             x: Number((Math.cos(angle) * spawnR).toFixed(2)),
-            y: 1.5,
+            y: 0,
             z: Number((Math.sin(angle) * spawnR).toFixed(2)),
             rotY: 0,
-            credits: 200, // Starter credits so visitors can immediately test the Anti-Dupe Auction House
+            credits: 200,
             ownedItems: [],
             lastBroadcastAt: 0,
             lastChatAt: 0,
@@ -111,13 +178,16 @@ class WorldEngine {
         };
 
         this.players.set(playerId, player);
+        const residents = this._getResidents();
 
         // Send initial world snapshot to the joining player
         ws.send(JSON.stringify({
             type: 'WORLD_INIT',
             selfId: playerId,
+            isSignedIn: Boolean(authedUser),
             player: this._safePlayer(player),
             players: Array.from(this.players.values()).map(p => this._safePlayer(p)),
+            residents,
             crystals: Array.from(this.crystals.values()),
             listings: this.listings,
             liveOps: this.liveOps,
@@ -125,10 +195,11 @@ class WorldEngine {
             dupeBlocksCount: this.dupeBlocksCount,
         }));
 
-        // Notify everyone else
+        // Notify everyone else (including updated residents list so their strolling resident turns into their live player!)
         this._broadcast({
             type: 'PLAYER_JOIN',
             player: this._safePlayer(player),
+            residents,
             leaderboard: this._getLeaderboard(),
         }, playerId);
 
@@ -167,6 +238,18 @@ class WorldEngine {
                     }
                     if (typeof msg.accessory === 'string' && ACCESSORIES.includes(msg.accessory)) {
                         player.accessory = msg.accessory;
+                    }
+                    // Persist avatar customization to their BloxCloud studio profile so it stays permanent in the plaza!
+                    if (player.userId) {
+                        const dbUser = db.findUserById(player.userId);
+                        if (dbUser) {
+                            dbUser.avatar = {
+                                color: player.color,
+                                skinTone: player.skinTone,
+                                accessory: player.accessory,
+                            };
+                            db.saveUser(dbUser);
+                        }
                     }
                     this._broadcast({ type: 'PLAYER_UPDATE', player: this._safePlayer(player), leaderboard: this._getLeaderboard() });
                     break;
@@ -294,6 +377,7 @@ class WorldEngine {
             this._broadcast({
                 type: 'PLAYER_LEAVE',
                 id: playerId,
+                residents: this._getResidents(),
                 leaderboard: this._getLeaderboard(),
             });
         });

@@ -42,7 +42,8 @@
                             <span id="connBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold uppercase">CONNECTING</span>
                         </div>
                         <div class="text-[11px] text-blue-200 font-mono flex items-center space-x-3 mt-0.5">
-                            <span>Players: <strong id="hudPlayers" class="text-cyan-300">1</strong></span>
+                            <span>Online: <strong id="hudPlayers" class="text-cyan-300">1</strong></span>
+                            <span>Studios: <strong id="hudResidents" class="text-blue-200">0</strong></span>
                             <span>Ping: <strong id="hudPing" class="text-emerald-300">-- ms</strong></span>
                             <span>FPS: <strong id="hudFps" class="text-white">60</strong></span>
                             <span>Credits: <strong id="hudCredits" class="text-amber-300">200</strong></span>
@@ -652,7 +653,36 @@
         let myCustom = { name: 'Player', color: '#3b82f6', skinTone: '#ffdbac', accessory: 'crown' };
         let liveOps = { gravity: 1.0, speedMultiplier: 1.0 };
         const remotePlayers = new Map(); // id -> { mesh, tx, ty, tz, trotY, name }
+        const residentNPCs = new Map(); // resId -> { mesh, x, z, targetX, targetZ, waitUntil, data }
         const crystalMeshes = new Map();
+
+        function syncResidents(list) {
+            const incomingIds = new Set((list || []).map(r => r.id));
+            // Remove residents who just came online or left
+            for (const [id, r] of residentNPCs.entries()) {
+                if (!incomingIds.has(id)) {
+                    scene.remove(r.mesh);
+                    residentNPCs.delete(id);
+                }
+            }
+            // Add new real registered studio residents
+            (list || []).forEach(r => {
+                if (residentNPCs.has(r.id)) return;
+                const mesh = createMiiAvatar(r);
+                mesh.position.set(r.x, 0, r.z);
+                residentNPCs.set(r.id, {
+                    mesh,
+                    x: r.x,
+                    z: r.z,
+                    targetX: r.x + (Math.random() - 0.5) * 16,
+                    targetZ: r.z + (Math.random() - 0.5) * 16,
+                    waitUntil: performance.now() + 1000 + Math.random() * 3000,
+                    wavedAtPlayerAt: 0,
+                    data: r,
+                });
+            });
+            document.getElementById('hudResidents').textContent = residentNPCs.size;
+        }
 
         const localPlayer = {
             mesh: null,
@@ -736,7 +766,9 @@
 
         function connectWorld() {
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${proto}//${location.host}/ws/world`);
+            const token = localStorage.getItem('bloxcloud_token') || '';
+            const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+            ws = new WebSocket(`${proto}//${location.host}/ws/world${qs}`);
 
             ws.onopen = () => {
                 document.getElementById('connBadge').textContent = 'LIVE SYNC';
@@ -775,6 +807,7 @@
                             m.position.set(p.x, p.y, p.z);
                             remotePlayers.set(p.id, { mesh: m, tx: p.x, ty: p.y, tz: p.z, trotY: p.rotY, name: p.name });
                         });
+                        syncResidents(msg.residents);
                         (msg.crystals || []).forEach(addCrystalToScene);
                         renderLeaderboard(msg.leaderboard);
                         renderAuctionListings(msg.listings);
@@ -782,6 +815,7 @@
                         break;
                     }
                     case 'PLAYER_JOIN': {
+                        if (msg.residents) syncResidents(msg.residents);
                         if (msg.player.id === selfId) return;
                         const m = createMiiAvatar(msg.player);
                         m.position.set(msg.player.x, 0, msg.player.z);
@@ -816,6 +850,7 @@
                         break;
                     }
                     case 'PLAYER_LEAVE': {
+                        if (msg.residents) syncResidents(msg.residents);
                         const rp = remotePlayers.get(msg.id);
                         if (rp) {
                             scene.remove(rp.mesh);
@@ -1050,6 +1085,45 @@
                 rp.mesh.position.z += dz * Math.min(1, dt * 12);
                 rp.mesh.rotation.y = rp.trotY;
                 animateAvatarLimbs(rp.mesh, moving, dt, now);
+            }
+
+            // Wii Mii-Style Strolling Registered Studio Residents
+            for (const res of residentNPCs.values()) {
+                const pDx = localPlayer.x - res.x;
+                const pDz = localPlayer.z - res.z;
+                const distToPlayer = Math.hypot(pDx, pDz);
+
+                if (distToPlayer < 7.5 && now - res.wavedAtPlayerAt > 12000) {
+                    // Turn toward visitor and wave!
+                    res.wavedAtPlayerAt = now;
+                    res.waitUntil = now + 2600;
+                    res.mesh.rotation.y = Math.atan2(pDx, pDz);
+                    res.mesh.userData.emote = 'wave';
+                    res.mesh.userData.emoteUntil = now + 2200;
+                }
+
+                let isStrolling = false;
+                if (now > res.waitUntil) {
+                    const dx = res.targetX - res.x;
+                    const dz = res.targetZ - res.z;
+                    const d = Math.hypot(dx, dz);
+                    if (d < 0.8) {
+                        // Pick next strolling spot inside the plaza
+                        const angle = Math.random() * Math.PI * 2;
+                        const rad = 11 + Math.random() * 34;
+                        res.targetX = Math.cos(angle) * rad;
+                        res.targetZ = Math.sin(angle) * rad;
+                        res.waitUntil = now + 2000 + Math.random() * 3500;
+                    } else {
+                        const strollSpeed = 3.2;
+                        res.x += (dx / d) * strollSpeed * dt;
+                        res.z += (dz / d) * strollSpeed * dt;
+                        res.mesh.rotation.y = Math.atan2(dx, dz);
+                        isStrolling = true;
+                    }
+                }
+                res.mesh.position.set(res.x, 0, res.z);
+                animateAvatarLimbs(res.mesh, isStrolling, dt, now);
             }
 
             // Particle Bursts
