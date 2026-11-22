@@ -7,12 +7,12 @@
     <meta name="description" content="Explore BloxCloud's live 3D Mii-style multiplayer plaza powered by real-time WebSockets, customizable 3D avatars, speech bubbles, emotes, atomic anti-dupe trading, and LiveOps physics.">
     <meta property="og:title" content="BloxCloud 3D Live Multiplayer Plaza">
     <meta property="og:description" content="Walk around in 3D, run a live 0.2ms anti-dupe exploit test, and trigger Moon Gravity LiveOps right inside your browser.">
-    <meta property="og:image" content="https://bloxcloud.world/play-poster.png">
+    <meta property="og:image" content="https://bloxcloud.world/play-poster.png?v=2">
     <meta name="twitter:card" content="player">
     <meta name="twitter:site" content="@Bloxcloud1999">
     <meta name="twitter:title" content="BloxCloud 3D Live Multiplayer Plaza">
     <meta name="twitter:description" content="Try live anti-dupe atomic locking, Moon Gravity LiveOps, and 3D multiplayer sync right inside this post.">
-    <meta name="twitter:image" content="https://bloxcloud.world/play-poster.png">
+    <meta name="twitter:image" content="https://bloxcloud.world/play-poster.png?v=2">
     <meta name="twitter:player" content="https://bloxcloud.world/play/embed">
     <meta name="twitter:player:width" content="640">
     <meta name="twitter:player:height" content="480">
@@ -1146,8 +1146,10 @@
         // 3. CONTROLS & 60FPS ANIMATION LOOP
         // -----------------------------------------------------------------
         const keys = {};
+        const GAME_SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);
         window.addEventListener('keydown', e => {
             if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) return;
+            if (GAME_SCROLL_KEYS.has(e.code)) e.preventDefault();
             keys[e.code] = true;
             if (e.code === 'Space' && localPlayer.onGround) {
                 localPlayer.vy = 13.0 / Math.sqrt(Math.max(0.3, liveOps.gravity));
@@ -1155,7 +1157,7 @@
             }
             if (e.code === 'Digit1') triggerEmote('wave');
             if (e.code === 'Digit2') triggerEmote('dance');
-        });
+        }, { passive: false });
         window.addEventListener('keyup', e => { keys[e.code] = false; });
 
         // Camera Orbit
