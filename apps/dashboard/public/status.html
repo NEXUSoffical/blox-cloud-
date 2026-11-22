@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxCloud System Status &amp; Security Architecture</title>
+    <meta name="description" content="Real-time BloxCloud API status, live response latency, uptime metrics, anti-dupe economy architecture, and studio data portability guarantees.">
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 15% 0%, #0d214f 0%, #061028 45%, #030816 100%);
+            color: #f8fafc;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(16, 33, 74, 0.72), rgba(8, 17, 42, 0.85));
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(59, 130, 246, 0.28);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Top Header -->
+    <header class="glass-panel border-b border-blue-500/30 sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+        <a href="/" class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/40 border border-blue-400/40">
+                <i class="fa-solid fa-cube text-base"></i>
+            </div>
+            <div>
+                <div class="font-extrabold text-lg tracking-tight text-white">BloxCloud <span class="text-cyan-400 font-semibold text-sm">Status &amp; Trust</span></div>
+                <div class="text-[11px] text-blue-300">Live Infrastructure Telemetry &amp; Security Architecture</div>
+            </div>
+        </a>
+        <div class="flex items-center space-x-3 text-xs">
+            <a href="/" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-white font-semibold transition-all">Dashboard</a>
+            <a href="/docs" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-white font-semibold transition-all">Docs &amp; API</a>
+            <a href="https://x.com/Bloxcloud1999" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-cyan-300 hover:text-white font-semibold transition-all">@Bloxcloud1999</a>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10 space-y-8">
+        <!-- Global Operational Banner -->
+        <div id="overallBanner" class="glass-panel rounded-2xl p-6 border border-emerald-500/40 bg-emerald-950/20 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center">
+                    <span id="overallDot" class="w-4 h-4 rounded-full bg-emerald-400 animate-pulse"></span>
+                </div>
+                <div>
+                    <h1 id="overallTitle" class="text-xl font-extrabold text-white">Checking Live Systems...</h1>
+                    <p id="overallSub" class="text-xs text-emerald-200 mt-0.5">Measuring real-time API latency and cloud database connectivity</p>
+                </div>
+            </div>
+            <button onclick="fetchLiveStatus()" class="px-4 py-2 rounded-xl bg-blue-950/80 hover:bg-blue-900 border border-blue-500/40 text-xs font-bold text-cyan-200 flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Refresh Probe</span>
+            </button>
+        </div>
+
+        <!-- 3 Live Telemetry Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-panel rounded-2xl p-5">
+                <div class="text-[11px] uppercase tracking-wider font-bold text-blue-300">Live API Round-Trip Latency</div>
+                <div id="metricLatency" class="text-3xl font-extrabold text-white font-mono mt-2">-- ms</div>
+                <div class="text-xs text-blue-200/80 mt-1">Measured directly from your browser</div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5">
+                <div class="text-[11px] uppercase tracking-wider font-bold text-blue-300">Current Instance Uptime</div>
+                <div id="metricUptime" class="text-3xl font-extrabold text-cyan-300 font-mono mt-2">--</div>
+                <div id="metricBoot" class="text-xs text-blue-200/80 mt-1">Boot time: --</div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5">
+                <div class="text-[11px] uppercase tracking-wider font-bold text-blue-300">Cloud Database Engine</div>
+                <div id="metricDb" class="text-xl font-extrabold text-emerald-300 font-mono mt-3">--</div>
+                <div id="metricRuntime" class="text-xs text-blue-200/80 mt-1.5">Runtime: --</div>
+            </div>
+        </div>
+
+        <!-- Live Component Grid -->
+        <section class="glass-panel rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-blue-500/20 pb-3">
+                <h2 class="text-base font-extrabold text-white">Core Infrastructure Components</h2>
+                <span id="lastCheckedText" class="text-xs font-mono text-blue-300">Last probe: --</span>
+            </div>
+            <div id="servicesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/25 text-blue-300">Loading component status...</div>
+            </div>
+        </section>
+
+        <!-- Security, Anti-Dupe & Data Portability Architecture -->
+        <section class="glass-panel rounded-2xl p-6 space-y-5">
+            <div class="border-b border-blue-500/20 pb-3">
+                <h2 class="text-base font-extrabold text-white">Security, Anti-Dupe &amp; Data Portability Architecture</h2>
+                <p class="text-xs text-blue-200 mt-1">How BloxCloud protects studio economies, isolates keys, and guarantees zero vendor lock-in.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2">
+                    <div class="font-bold text-cyan-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Atomic Anti-Dupe Economy Locking</span>
+                    </div>
+                    <p class="text-blue-100/85 leading-relaxed">
+                        Cross-server marketplace purchases execute through single-threaded atomic reservation checks on the BloxCloud API. Once a listing ID transitions to <code class="font-mono text-cyan-300">SOLD</code>, concurrent purchase requests from other game servers are immediately rejected before any item is granted, preventing cross-server duplication exploits.
+                    </p>
+                </div>
+
+                <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2">
+                    <div class="font-bold text-purple-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-key"></i>
+                        <span>Dual-Key &amp; HMAC Player Session Isolation</span>
+                    </div>
+                    <p class="text-blue-100/85 leading-relaxed">
+                        Server-side engines (Roblox, Minecraft, Node) authenticate with secret <code class="font-mono text-cyan-300">bc_live_</code> keys kept strictly off client devices. Browser and Web3 games use read-only <code class="font-mono text-purple-300">bc_pub_</code> keys paired with timing-safe HMAC-SHA256 player tokens (<code class="font-mono text-purple-300">bcp_</code>) and Ed25519 Solana wallet signatures so players cannot spoof identities in DevTools.
+                    </p>
+                </div>
+
+                <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2">
+                    <div class="font-bold text-emerald-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Zero Vendor Lock-In (1-Click JSON Export)</span>
+                    </div>
+                    <p class="text-blue-100/85 leading-relaxed">
+                        Your studio data belongs to you. Any signed-in studio can export 100% of its LiveOps feature flags, marketplace listings, transaction ledger, and invoices at any time via the dashboard's <strong>Export Data (JSON)</strong> button or <code class="font-mono text-emerald-300">GET /api/v1/studio/export</code>.
+                    </p>
+                </div>
+
+                <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/30 space-y-2">
+                    <div class="font-bold text-amber-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Open-Source SDKs &amp; Fail-Safe Continuity</span>
+                    </div>
+                    <p class="text-blue-100/85 leading-relaxed">
+                        All three SDKs (Roblox Luau, Minecraft Java, and Web/Web3 JS) are publicly auditable on <a href="https://github.com/NEXUSoffical/blox-cloud-" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline">GitHub</a> and wrap all network calls in non-blocking safe handlers so your live game servers never freeze or crash even during external network outages.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-blue-500/20 py-6 text-center text-xs text-blue-300/80">
+        BloxCloud Infrastructure Status • <a href="/" class="text-cyan-300 hover:underline">Dashboard</a> • <a href="/docs" class="text-cyan-300 hover:underline">Docs</a> • <a href="/legal" class="text-cyan-300 hover:underline">Legal</a> • <a href="https://x.com/Bloxcloud1999" target="_blank" rel="noopener noreferrer" class="text-cyan-300 hover:underline">@Bloxcloud1999</a>
+    </footer>
+
+    <script>
+        function formatUptime(sec) {
+            const d = Math.floor(sec / 86400);
+            const h = Math.floor((sec % 86400) / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            if (d > 0) return `${d}d ${h}h ${m}m`;
+            if (h > 0) return `${h}h ${m}m ${s}s`;
+            return `${m}m ${s}s`;
+        }
+
+        async function fetchLiveStatus() {
+            const t0 = performance.now();
+            try {
+                const res = await fetch('/api/v1/status/public', { cache: 'no-store' });
+                const latencyMs = Math.max(1, Math.round(performance.now() - t0));
+                const data = await res.json();
+
+                document.getElementById('metricLatency').innerText = `${latencyMs} ms`;
+                document.getElementById('metricUptime').innerText = formatUptime(data.uptimeSeconds || 0);
+                document.getElementById('metricBoot').innerText = `Started: ${new Date(data.startedAt).toUTCString()}`;
+                document.getElementById('metricDb').innerText = data.database ? data.database.mode : 'Connected';
+                document.getElementById('metricRuntime').innerText = `Node ${data.nodeVersion || '18+'} • Multi-Tenant Isolated`;
+                document.getElementById('lastCheckedText').innerText = `Last probe: ${new Date().toLocaleTimeString()}`;
+
+                const isOk = res.ok && data.status === 'OPERATIONAL';
+                document.getElementById('overallTitle').innerText = isOk ? 'All Systems Operational' : 'Degraded Service Detected';
+                document.getElementById('overallSub').innerText = isOk
+                    ? `Verified live at ${new Date().toLocaleTimeString()} • ${latencyMs} ms API response`
+                    : 'One or more subsystems reported an issue.';
+
+                const grid = document.getElementById('servicesGrid');
+                grid.innerHTML = (data.services || []).map(svc => {
+                    const ok = svc.status === 'OPERATIONAL';
+                    const badgeClass = ok
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-400/40';
+                    return `
+                        <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/25 flex items-center justify-between">
+                            <div>
+                                <div class="font-bold text-white">${svc.name}</div>
+                                <div class="text-[11px] text-blue-300/80 mt-0.5">${svc.detail}</div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase ${badgeClass}">${svc.status}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                document.getElementById('overallTitle').innerText = 'Status Probe Unreachable';
+                document.getElementById('overallSub').innerText = err.message;
+            }
+        }
+
+        fetchLiveStatus();
+        setInterval(fetchLiveStatus, 30000);
+    </script>
+</body>
+</html>

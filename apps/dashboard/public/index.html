@@ -112,6 +112,12 @@
                 <span>Docs & API</span>
             </a>
 
+            <!-- Live Status & Trust Link -->
+            <a href="/status" target="_blank" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-emerald-500/30 text-emerald-200 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Status</span>
+            </a>
+
             <!-- X Customer Support Link -->
             <a href="https://x.com/Bloxcloud1999" target="_blank" rel="noopener noreferrer" title="Customer Support on X (@Bloxcloud1999)" class="px-3.5 py-2 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all">
                 <i class="fa-brands fa-x-twitter text-cyan-400 text-xs"></i>
@@ -147,6 +153,10 @@
                     <button onclick="openBillingModal(); toggleUserDropdown()" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-blue-900/40 text-blue-200 flex items-center space-x-2">
                         <i class="fa-solid fa-gem text-amber-400"></i>
                         <span>Upgrade Subscription</span>
+                    </button>
+                    <button onclick="exportStudioData(); toggleUserDropdown()" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-blue-900/40 text-emerald-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Export Studio Data (JSON)</span>
                     </button>
                     <button onclick="handleLogout()" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-rose-950/40 text-rose-400 flex items-center space-x-2">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -210,7 +220,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2">
+                    <button onclick="exportStudioData()" title="Download full JSON backup of your studio data (zero vendor lock-in)" class="text-xs px-3.5 py-1.5 rounded-xl bg-emerald-950/50 hover:bg-emerald-900/50 border border-emerald-500/40 text-emerald-200 font-semibold flex items-center space-x-1.5 transition-colors">
+                        <i class="fa-solid fa-download text-[11px]"></i>
+                        <span>Export Data</span>
+                    </button>
                     <button onclick="regenerateApiKey()" class="text-xs px-3.5 py-1.5 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-500/30 text-blue-200 transition-colors">
                         Regenerate Key
                     </button>
@@ -748,20 +762,26 @@
                 <button onclick="closeBillingModal()" class="text-blue-300 hover:text-white p-1 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
-            <!-- Engine Pricing Toggle (Roblox vs Minecraft vs Web & Web3) -->
-            <div class="flex p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs gap-1">
-                <button id="tabBillingRobloxBtn" onclick="switchBillingEngine('roblox')" class="flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-gamepad"></i>
-                    <span>Roblox Studios</span>
-                </button>
-                <button id="tabBillingMinecraftBtn" onclick="switchBillingEngine('minecraft')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-cubes"></i>
-                    <span>Minecraft Networks</span>
-                </button>
-                <button id="tabBillingWebBtn" onclick="switchBillingEngine('web')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
-                    <i class="fa-brands fa-js"></i>
-                    <span>Web &amp; Web3 Games</span>
-                </button>
+            <!-- Engine Pricing Toggle & Currency Selector (USD / GBP) -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-1 min-w-[260px] p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs gap-1">
+                    <button id="tabBillingRobloxBtn" onclick="switchBillingEngine('roblox')" class="flex-1 py-2 font-bold rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-600/30 transition-all flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-gamepad"></i>
+                        <span>Roblox Studios</span>
+                    </button>
+                    <button id="tabBillingMinecraftBtn" onclick="switchBillingEngine('minecraft')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-cubes"></i>
+                        <span>Minecraft Networks</span>
+                    </button>
+                    <button id="tabBillingWebBtn" onclick="switchBillingEngine('web')" class="flex-1 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all flex items-center justify-center space-x-1.5">
+                        <i class="fa-brands fa-js"></i>
+                        <span>Web &amp; Web3 Games</span>
+                    </button>
+                </div>
+                <div class="flex p-1 bg-[#060e24] rounded-xl border border-blue-500/30 text-xs gap-1">
+                    <button id="currBtnUSD" onclick="switchBillingCurrency('USD')" class="px-3 py-2 font-bold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 transition-all">USD ($)</button>
+                    <button id="currBtnGBP" onclick="switchBillingCurrency('GBP')" class="px-3 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all">GBP (£)</button>
+                </div>
             </div>
 
             <!-- Current Plan Banner -->
@@ -786,7 +806,7 @@
                 <div class="p-4 rounded-xl bg-[#071129] border border-blue-500/30 hover:border-blue-400/60 flex flex-col justify-between space-y-4 transition-all">
                     <div class="space-y-2">
                         <div id="planTitleFREE" class="font-bold text-white text-sm">Indie / Free</div>
-                        <div class="text-2xl font-extrabold text-white font-mono">£0 <span class="text-xs text-blue-200 font-normal">/mo</span></div>
+                        <div id="planPriceFREE" class="text-2xl font-extrabold text-white font-mono">$0 <span class="text-xs text-blue-200 font-normal">/mo</span></div>
                         <div id="planDescFREE" class="text-[11px] text-blue-200">For testing &amp; brand new indie games.</div>
                         <ul id="planFeaturesFREE" class="text-[11px] text-slate-200 space-y-1.5 pt-2 border-t border-blue-500/25">
                             <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Up to 2 servers &amp; 50 CCU</li>
@@ -807,7 +827,7 @@
                             <span id="planTitlePRO">Studio Pro</span>
                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-bold uppercase">Popular</span>
                         </div>
-                        <div class="text-2xl font-extrabold text-white font-mono">£24 <span class="text-xs text-blue-300 font-normal">GBP /mo</span></div>
+                        <div id="planPricePRO" class="text-2xl font-extrabold text-white font-mono">$29 <span class="text-xs text-blue-300 font-normal">USD /mo</span></div>
                         <div id="planDescPRO" class="text-[11px] text-blue-200">For games with up to 500 concurrent players.</div>
                         <ul id="planFeaturesPRO" class="text-[11px] text-slate-200 space-y-1.5 pt-2 border-t border-blue-500/25">
                             <li><i class="fa-solid fa-check text-cyan-400 mr-1"></i> Up to 25 servers &amp; 500 CCU</li>
@@ -825,7 +845,7 @@
                 <div class="p-4 rounded-xl bg-[#071129] border border-amber-400/50 glow-amber flex flex-col justify-between space-y-4 transition-all">
                     <div class="space-y-2">
                         <div id="planTitleSTUDIO" class="font-bold text-amber-300 text-sm">Scale Studio</div>
-                        <div class="text-2xl font-extrabold text-white font-mono">£79 <span class="text-xs text-blue-300 font-normal">GBP /mo</span></div>
+                        <div id="planPriceSTUDIO" class="text-2xl font-extrabold text-white font-mono">$99 <span class="text-xs text-blue-300 font-normal">USD /mo</span></div>
                         <div id="planDescSTUDIO" class="text-[11px] text-blue-200">For studios &amp; networks up to 2,500 CCU.</div>
                         <ul id="planFeaturesSTUDIO" class="text-[11px] text-slate-200 space-y-1.5 pt-2 border-t border-blue-500/25">
                             <li><i class="fa-solid fa-check text-amber-400 mr-1"></i> Up to 100 servers &amp; 2,500 CCU</li>
@@ -843,7 +863,7 @@
                 <div class="p-4 rounded-xl bg-[#071129] border border-purple-400/50 flex flex-col justify-between space-y-4 transition-all">
                     <div class="space-y-2">
                         <div id="planTitleENTERPRISE" class="font-bold text-purple-300 text-sm">Top Enterprise</div>
-                        <div class="text-2xl font-extrabold text-white font-mono">£199 <span class="text-xs text-blue-300 font-normal">GBP /mo</span></div>
+                        <div id="planPriceENTERPRISE" class="text-2xl font-extrabold text-white font-mono">$249 <span class="text-xs text-blue-300 font-normal">USD /mo</span></div>
                         <div id="planDescENTERPRISE" class="text-[11px] text-blue-200">For front-page hit games &amp; mega networks.</div>
                         <ul id="planFeaturesENTERPRISE" class="text-[11px] text-slate-200 space-y-1.5 pt-2 border-t border-blue-500/25">
                             <li><i class="fa-solid fa-check text-purple-400 mr-1"></i> Unlimited Servers &amp; Players</li>
@@ -2047,6 +2067,57 @@ BloxCloudPlugin.get().listGlobalItem(player, "netherite_sword_sharp5", 15000);`;
             if (el) {
                 el.innerText = 'Copied!';
                 setTimeout(() => { el.innerText = 'Copy'; }, 2000);
+            }
+        }
+
+        function switchBillingCurrency(curr) {
+            const isUsd = curr === 'USD';
+            const btnUsd = document.getElementById('currBtnUSD');
+            const btnGbp = document.getElementById('currBtnGBP');
+            const activeCls = 'px-3 py-2 font-bold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 transition-all';
+            const inactiveCls = 'px-3 py-2 font-bold rounded-lg text-blue-200 hover:text-white transition-all';
+            if (btnUsd) btnUsd.className = isUsd ? activeCls : inactiveCls;
+            if (btnGbp) btnGbp.className = isUsd ? inactiveCls : activeCls;
+
+            const prices = isUsd
+                ? { FREE: '$0', PRO: '$29', STUDIO: '$99', ENTERPRISE: '$249', code: 'USD' }
+                : { FREE: '£0', PRO: '£24', STUDIO: '£79', ENTERPRISE: '£199', code: 'GBP' };
+
+            const pFree = document.getElementById('planPriceFREE');
+            const pPro = document.getElementById('planPricePRO');
+            const pStudio = document.getElementById('planPriceSTUDIO');
+            const pEnt = document.getElementById('planPriceENTERPRISE');
+            if (pFree) pFree.innerHTML = `${prices.FREE} <span class="text-xs text-blue-200 font-normal">/mo</span>`;
+            if (pPro) pPro.innerHTML = `${prices.PRO} <span class="text-xs text-blue-300 font-normal">${prices.code} /mo</span>`;
+            if (pStudio) pStudio.innerHTML = `${prices.STUDIO} <span class="text-xs text-blue-300 font-normal">${prices.code} /mo</span>`;
+            if (pEnt) pEnt.innerHTML = `${prices.ENTERPRISE} <span class="text-xs text-blue-300 font-normal">${prices.code} /mo</span>`;
+        }
+
+        async function exportStudioData() {
+            if (!authToken) {
+                alert('Please sign in first to export your studio data.');
+                document.getElementById('authModal').classList.remove('hidden');
+                return;
+            }
+            try {
+                const res = await fetch(`${API}/studio/export`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (!res.ok) {
+                    alert('Failed to export studio data. Please sign in again.');
+                    return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `bloxcloud-studio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Export error: ' + err.message);
             }
         }
 

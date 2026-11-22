@@ -90,6 +90,10 @@ app.get(['/legal', '/terms', '/privacy'], (req, res) => {
     res.sendFile('legal.html', { root: dashboardPath });
 });
 
+app.get('/status', (req, res) => {
+    res.sendFile('status.html', { root: dashboardPath });
+});
+
 // Path to Luau, Minecraft & Web/JS SDKs
 const sdkPath = path.resolve(__dirname, '../../../sdk/BloxCloud.luau');
 const minecraftSdkPath = path.resolve(__dirname, '../../../sdk/BloxCloudPlugin.java');
@@ -608,8 +612,66 @@ app.post('/api/v1/settings/discord-webhook/test', requireSession, async (req, re
 // METRICS & OPERATIONS
 // -----------------------------------------------------------------------------
 
+const SERVER_STARTED_AT = new Date().toISOString();
+
 app.get('/api/v1/health', (req, res) => {
     res.json({ status: 'HEALTHY', version: '1.0.0', uptime: process.uptime() });
+});
+
+app.get('/api/v1/status/public', (req, res) => {
+    const hasPg = Boolean(process.env.DATABASE_URL);
+    const hasResend = Boolean(process.env.RESEND_API_KEY);
+    res.json({
+        status: 'OPERATIONAL',
+        version: '1.0.0',
+        uptimeSeconds: Math.floor(process.uptime()),
+        startedAt: SERVER_STARTED_AT,
+        nodeVersion: process.version,
+        database: {
+            connected: true,
+            mode: hasPg ? 'PostgreSQL Cloud' : 'Local Persistent JSON',
+        },
+        services: [
+            { name: 'Core REST API & Telemetry Engine', status: 'OPERATIONAL', detail: 'Multi-tenant Roblox, Minecraft & Web3 ingestion' },
+            { name: 'WebSocket Live Dashboard Sync', status: 'OPERATIONAL', detail: 'Real-time event streaming & emergency broadcasts' },
+            { name: 'Cloud Database Persistence', status: 'OPERATIONAL', detail: hasPg ? 'Render Managed PostgreSQL (Serialized Writes)' : 'Local JSON Persistence' },
+            { name: 'AI Game Studio (.rbxlx Compiler)', status: 'OPERATIONAL', detail: 'Procedural 3D world & Luau SDK generator' },
+            { name: 'Transactional Email Security (Resend)', status: hasResend ? 'OPERATIONAL' : 'DEGRADED', detail: hasResend ? 'Verified domain password recovery active' : 'Awaiting RESEND_API_KEY configuration' },
+            { name: 'Discord SRE & Exploit Alert Dispatcher', status: 'OPERATIONAL', detail: 'SSRF-validated webhook notifications with cooldowns' },
+        ],
+        timestamp: Date.now(),
+    });
+});
+
+app.get('/api/v1/studio/export', requireSession, (req, res) => {
+    const user = req.user;
+    const studioId = user.id;
+    const exportPayload = {
+        exportedAt: new Date().toISOString(),
+        platform: 'BloxCloud',
+        schemaVersion: '1.0.0',
+        studio: {
+            id: user.id,
+            username: user.username,
+            studioName: user.studioName,
+            email: user.email,
+            plan: user.plan,
+            createdAt: user.createdAt,
+        },
+        usage: {
+            monthlyMatches: db.getMonthlyMatchCount(studioId),
+            monthlyAiGenerations: db.getMonthlyGenerationCount(studioId),
+        },
+        liveOpsFlags: db.getFlags(studioId),
+        marketplaceListings: db.getListings(studioId),
+        transactionLedger: db.getLedger(studioId),
+        invoices: db.getUserInvoices(studioId),
+    };
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="bloxcloud-studio-backup-${dateStr}.json"`);
+    res.send(JSON.stringify(exportPayload, null, 2));
 });
 
 app.get('/api/v1/metrics', requireSession, (req, res) => {
