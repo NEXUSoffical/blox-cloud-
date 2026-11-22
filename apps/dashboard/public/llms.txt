@@ -1,0 +1,35 @@
+# BloxCloud
+
+> BloxCloud (https://bloxcloud.world) is an all-in-one Backend-as-a-Service (BaaS), LiveOps platform, and AI Game Studio for Roblox studios, Minecraft server networks (Paper, Spigot, Purpur, Velocity), and Web/Web3 crypto games.
+
+## Core Capabilities
+
+- **AI Game Studio (.rbxlx Generator)**: Compiles turnkey, playable Roblox place files (`.rbxlx`) with procedural 3D maps (Obby, PvP Battle Arena, Coin Simulator), atmospheric lighting, Luau server scripts, StarterGui HUD, pre-baked MarketplaceService monetization hooks, and an auto-connected BloxCloud telemetry & LiveOps dashboard.
+- **Live Server Telemetry & Discord SRE Alerts**: Real-time monitoring for Roblox FPS/memory/ping and Minecraft TPS/MSPT/RAM with instant Discord webhook notifications for lag spikes, unhandled runtime script crashes, and exploit alerts.
+- **Zero-Downtime LiveOps & Global Broadcasts**: Remote feature flags, emergency kill-switches, live event multipliers (`coin_multiplier`, `walk_speed`), and global in-game announcement banners without restarting servers.
+- **Cross-Server Ranked ELO Matchmaking**: Skill-based matchmaking queues across Roblox ReserveServer and Minecraft Velocity proxies.
+- **Atomic Anti-Dupe Global Auction House**: Cross-server player marketplace with single-threaded atomic purchase locking and an immutable transaction ledger to prevent item duplication.
+- **Universal Web & Web3 JavaScript SDK**: Zero-dependency browser/Node SDK (`https://bloxcloud.world/sdk/web.js`) featuring dual-key isolation (`bc_live_` server secret vs `bc_pub_` client key), HMAC-SHA256 player session tokens, and cryptographic Solana/Phantom Ed25519 wallet authentication.
+- **Zero Vendor Lock-In**: 1-click JSON backup export (`GET /api/v1/studio/export`) of all studio flags, listings, ledger entries, and invoices.
+
+## Supported Engines & Open-Source SDKs
+
+- **Roblox (Luau)**: 1-file `BloxCloud.luau` module (`https://bloxcloud.world/api/v1/sdk/download`)
+- **Minecraft (Java 17+)**: Drag-and-drop compiled `BloxCloud.jar` for Paper, Spigot, Purpur, and Velocity (`https://bloxcloud.world/api/v1/sdk/minecraft/download-jar`)
+- **Web & Web3 (JavaScript)**: Standalone UMD script (`https://bloxcloud.world/sdk/web.js`)
+- **GitHub Source**: https://github.com/NEXUSoffical/blox-cloud-
+
+## Pricing (USD / GBP)
+
+- **Indie / Free**: $0 / £0 per month — Up to 2 servers, 50 CCU, 2 AI Game Studio exports/month, 10,000 matches/month.
+- **Studio Pro**: $29 USD / £24 GBP per month — Up to 25 servers, 500 CCU, 15 AI Game Studio exports/month, 250,000 matches/month.
+- **Scale Studio**: $99 USD / £79 GBP per month — Up to 100 servers, 2,500 CCU, Unlimited AI Game Studio exports, 1,500,000 matches/month.
+- **Top Enterprise**: $249 USD / £199 GBP per month — Unlimited servers, players, flags, listings, and AI games with 99.9% SLA.
+
+## Key Links
+
+- [Dashboard & AI Game Studio](https://bloxcloud.world/)
+- [Documentation & REST API Reference](https://bloxcloud.world/docs)
+- [Live System Status & Security Architecture](https://bloxcloud.world/status)
+- [Terms of Service & Privacy Policy](https://bloxcloud.world/legal)
+- [Customer Support on X (@Bloxcloud1999)](https://x.com/Bloxcloud1999)
