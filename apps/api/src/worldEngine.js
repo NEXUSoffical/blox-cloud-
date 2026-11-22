@@ -7,7 +7,9 @@
 
 const crypto = require('crypto');
 
-const NEON_COLORS = ['#38bdf8', '#22d3ee', '#a855f7', '#f43f5e', '#10b981', '#f59e0b', '#ec4899'];
+const NEON_COLORS = ['#3b82f6', '#06b6d4', '#a855f7', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
+const SKIN_TONES = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
+const ACCESSORIES = ['none', 'crown', 'visor', 'headphones', 'halo', 'tophat'];
 
 class WorldEngine {
     constructor() {
@@ -69,6 +71,8 @@ class WorldEngine {
             id: p.id,
             name: p.name,
             color: p.color,
+            skinTone: p.skinTone,
+            accessory: p.accessory,
             x: p.x,
             y: p.y,
             z: p.z,
@@ -91,8 +95,10 @@ class WorldEngine {
         const spawnR = 12 + Math.random() * 6;
         const player = {
             id: playerId,
-            name: 'Dev_' + playerId.slice(2, 6).toUpperCase(),
+            name: 'Player_' + playerId.slice(2, 6).toUpperCase(),
             color: NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)],
+            skinTone: SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)],
+            accessory: ACCESSORIES[Math.floor(Math.random() * ACCESSORIES.length)],
             x: Number((Math.cos(angle) * spawnR).toFixed(2)),
             y: 1.5,
             z: Number((Math.sin(angle) * spawnR).toFixed(2)),
@@ -100,6 +106,7 @@ class WorldEngine {
             credits: 200, // Starter credits so visitors can immediately test the Anti-Dupe Auction House
             ownedItems: [],
             lastBroadcastAt: 0,
+            lastChatAt: 0,
             ws,
         };
 
@@ -145,6 +152,47 @@ class WorldEngine {
                         player.name = clean;
                         this._broadcast({ type: 'PLAYER_UPDATE', player: this._safePlayer(player), leaderboard: this._getLeaderboard() });
                     }
+                    break;
+                }
+                case 'CUSTOMIZE': {
+                    if (msg.name) {
+                        const clean = String(msg.name).replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 16);
+                        if (clean.length >= 2) player.name = clean;
+                    }
+                    if (typeof msg.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(msg.color)) {
+                        player.color = msg.color;
+                    }
+                    if (typeof msg.skinTone === 'string' && /^#[0-9a-fA-F]{6}$/.test(msg.skinTone)) {
+                        player.skinTone = msg.skinTone;
+                    }
+                    if (typeof msg.accessory === 'string' && ACCESSORIES.includes(msg.accessory)) {
+                        player.accessory = msg.accessory;
+                    }
+                    this._broadcast({ type: 'PLAYER_UPDATE', player: this._safePlayer(player), leaderboard: this._getLeaderboard() });
+                    break;
+                }
+                case 'CHAT': {
+                    const now = Date.now();
+                    if (now - player.lastChatAt < 1000) return;
+                    const text = String(msg.text || '').trim().slice(0, 80);
+                    if (!text) return;
+                    player.lastChatAt = now;
+                    this._broadcast({
+                        type: 'PLAYER_CHAT',
+                        id: playerId,
+                        name: player.name,
+                        text,
+                    });
+                    break;
+                }
+                case 'EMOTE': {
+                    const emote = msg.emote === 'dance' ? 'dance' : 'wave';
+                    this._broadcast({
+                        type: 'PLAYER_EMOTE',
+                        id: playerId,
+                        name: player.name,
+                        emote,
+                    });
                     break;
                 }
                 case 'MOVE': {
