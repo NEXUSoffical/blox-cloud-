@@ -151,11 +151,11 @@
 
             <!-- Bottom-Right: Desktop Controls Hint + Mobile Touch D-Pad -->
             <div id="desktopControlsHint" class="hud-glass pointer-auto rounded-xl px-4 py-2 text-[11px] text-blue-200 font-semibold flex flex-wrap items-center gap-3">
-                <span><strong class="text-white">WASD</strong> Walk</span>
+                <span><strong class="text-white">W/S or ↑/↓</strong> Walk</span>
+                <span><strong class="text-white">A/D or ←/→</strong> Turn Camera</span>
                 <span><strong class="text-white">SPACE</strong> Jump</span>
                 <span><strong class="text-white">SHIFT</strong> Run</span>
                 <span><strong class="text-white">1 / 2</strong> Wave / Dance</span>
-                <span><strong class="text-white">DRAG</strong> Orbit Camera</span>
             </div>
 
             <div id="mobileControls" class="pointer-auto items-center gap-3">
@@ -1183,26 +1183,25 @@
             orbitRing1.rotation.z += dt * 0.7;
             orbitRing1.rotation.x = Math.sin(now * 0.0008) * 0.45;
 
-            // Local Movement
-            let moveX = 0, moveZ = 0;
-            if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
-            if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
-            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
-            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+            // Roblox-Style Controls: Left/Right rotates camera, Up/Down walks forward/backward
+            const turnSpeed = 2.4;
+            if (keys['KeyA'] || keys['ArrowLeft']) camYaw += turnSpeed * dt;
+            if (keys['KeyD'] || keys['ArrowRight']) camYaw -= turnSpeed * dt;
 
-            const isMoving = moveX !== 0 || moveZ !== 0;
+            let moveForward = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) moveForward += 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveForward -= 1;
+
+            const isMoving = moveForward !== 0;
             const boost = (keys['ShiftLeft'] || keys['ShiftRight']) ? 1.65 : 1.0;
             const speed = 13 * liveOps.speedMultiplier * boost;
 
             if (isMoving) {
-                const len = Math.hypot(moveX, moveZ);
-                moveX /= len; moveZ /= len;
-                const sin = Math.sin(camYaw), cos = Math.cos(camYaw);
-                const wx = moveX * cos + moveZ * sin;
-                const wz = -moveX * sin + moveZ * cos;
-                localPlayer.x = Math.max(-76, Math.min(76, localPlayer.x + wx * speed * dt));
-                localPlayer.z = Math.max(-76, Math.min(76, localPlayer.z + wz * speed * dt));
-                localPlayer.rotY = Math.atan2(wx, wz);
+                const fwdX = -Math.sin(camYaw) * moveForward;
+                const fwdZ = -Math.cos(camYaw) * moveForward;
+                localPlayer.x = Math.max(-76, Math.min(76, localPlayer.x + fwdX * speed * dt));
+                localPlayer.z = Math.max(-76, Math.min(76, localPlayer.z + fwdZ * speed * dt));
+                localPlayer.rotY = Math.atan2(fwdX, fwdZ);
             }
 
             // Gravity & Platform Collisions
