@@ -12,6 +12,12 @@ const auth = require('./auth');
 const NEON_COLORS = ['#3b82f6', '#06b6d4', '#a855f7', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
 const SKIN_TONES = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
 const ACCESSORIES = ['none', 'crown', 'visor', 'headphones', 'halo', 'tophat'];
+const MAX_PLAZA_PLAYERS = 60;
+
+function sanitizeName(str, fallback = 'Studio') {
+    const clean = String(str || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 16);
+    return clean.length >= 2 ? clean : fallback;
+}
 
 function deterministicPick(seedStr, list) {
     let h = 0;
@@ -124,7 +130,7 @@ class WorldEngine {
                 return {
                     id: 'res_' + u.id,
                     userId: u.id,
-                    name: (u.studioName || u.username || 'Studio').slice(0, 16),
+                    name: sanitizeName(u.studioName || u.username, 'Studio'),
                     plan: u.plan || 'FREE',
                     color: av.color,
                     skinTone: av.skinTone,
@@ -138,6 +144,11 @@ class WorldEngine {
     }
 
     handleConnection(ws, req = null) {
+        if (this.players.size >= MAX_PLAZA_PLAYERS) {
+            try { ws.close(1013, 'Plaza is full (max 60 concurrent players). Please try again shortly.'); } catch (e) {}
+            return;
+        }
+
         // Check if visitor is signed into a real BloxCloud Studio account
         let authedUser = null;
         try {
@@ -161,7 +172,7 @@ class WorldEngine {
             id: playerId,
             userId: authedUser ? authedUser.id : null,
             name: authedUser
-                ? (authedUser.studioName || authedUser.username || 'Studio').slice(0, 16)
+                ? sanitizeName(authedUser.studioName || authedUser.username, 'Studio')
                 : 'Guest_' + playerId.slice(2, 6).toUpperCase(),
             color: av.color,
             skinTone: av.skinTone,
@@ -174,6 +185,9 @@ class WorldEngine {
             ownedItems: [],
             lastBroadcastAt: 0,
             lastChatAt: 0,
+            lastEmoteAt: 0,
+            lastLiveOpsAt: 0,
+            lastMoveAt: 0,
             ws,
         };
 
@@ -269,6 +283,9 @@ class WorldEngine {
                     break;
                 }
                 case 'EMOTE': {
+                    const now = Date.now();
+                    if (now - player.lastEmoteAt < 1500) return;
+                    player.lastEmoteAt = now;
                     const emote = msg.emote === 'dance' ? 'dance' : 'wave';
                     this._broadcast({
                         type: 'PLAYER_EMOTE',
@@ -279,6 +296,9 @@ class WorldEngine {
                     break;
                 }
                 case 'MOVE': {
+                    const now = Date.now();
+                    if (now - player.lastMoveAt < 30) return;
+                    player.lastMoveAt = now;
                     const clampCoord = (v, min, max) => Math.max(min, Math.min(max, Number(v) || 0));
                     player.x = clampCoord(msg.x, -82, 82);
                     player.y = clampCoord(msg.y, 0.5, 45);
@@ -339,6 +359,9 @@ class WorldEngine {
                     break;
                 }
                 case 'LIVEOPS_SET': {
+                    const now = Date.now();
+                    if (now - player.lastLiveOpsAt < 2000) return;
+                    player.lastLiveOpsAt = now;
                     if (typeof msg.gravity === 'number') {
                         this.liveOps.gravity = Math.max(0.25, Math.min(2.0, msg.gravity));
                     }

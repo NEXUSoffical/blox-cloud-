@@ -24,6 +24,11 @@
         }
         .pointer-auto { pointer-events: auto; }
         .pointer-none { pointer-events: none; }
+        #mobileControls { display: none; }
+        @media (pointer: coarse), (max-width: 900px) {
+            #mobileControls { display: flex; }
+            #desktopControlsHint { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -144,13 +149,25 @@
                 </div>
             </div>
 
-            <!-- Bottom-Right: Controls Hint -->
-            <div class="hud-glass pointer-auto rounded-xl px-4 py-2 text-[11px] text-blue-200 font-semibold flex flex-wrap items-center gap-3">
+            <!-- Bottom-Right: Desktop Controls Hint + Mobile Touch D-Pad -->
+            <div id="desktopControlsHint" class="hud-glass pointer-auto rounded-xl px-4 py-2 text-[11px] text-blue-200 font-semibold flex flex-wrap items-center gap-3">
                 <span><strong class="text-white">WASD</strong> Walk</span>
                 <span><strong class="text-white">SPACE</strong> Jump</span>
                 <span><strong class="text-white">SHIFT</strong> Run</span>
                 <span><strong class="text-white">1 / 2</strong> Wave / Dance</span>
                 <span><strong class="text-white">DRAG</strong> Orbit Camera</span>
+            </div>
+
+            <div id="mobileControls" class="pointer-auto items-center gap-3">
+                <div class="grid grid-cols-3 gap-1 w-32">
+                    <div></div>
+                    <button onpointerdown="keys['KeyW']=true" onpointerup="keys['KeyW']=false" onpointerleave="keys['KeyW']=false" class="hud-glass h-10 rounded-lg text-white font-bold text-xs active:bg-cyan-600"><i class="fa-solid fa-arrow-up"></i></button>
+                    <div></div>
+                    <button onpointerdown="keys['KeyA']=true" onpointerup="keys['KeyA']=false" onpointerleave="keys['KeyA']=false" class="hud-glass h-10 rounded-lg text-white font-bold text-xs active:bg-cyan-600"><i class="fa-solid fa-arrow-left"></i></button>
+                    <button onpointerdown="keys['KeyS']=true" onpointerup="keys['KeyS']=false" onpointerleave="keys['KeyS']=false" class="hud-glass h-10 rounded-lg text-white font-bold text-xs active:bg-cyan-600"><i class="fa-solid fa-arrow-down"></i></button>
+                    <button onpointerdown="keys['KeyD']=true" onpointerup="keys['KeyD']=false" onpointerleave="keys['KeyD']=false" class="hud-glass h-10 rounded-lg text-white font-bold text-xs active:bg-cyan-600"><i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <button onpointerdown="triggerMobileJump()" class="hud-glass w-14 h-14 rounded-full text-cyan-300 font-extrabold text-[11px] border border-cyan-400/60 active:bg-cyan-600 active:text-white">JUMP</button>
             </div>
         </div>
     </div>
@@ -671,12 +688,21 @@
             return group;
         }
 
+        function disposeSprite(spr) {
+            if (!spr) return;
+            if (spr.material) {
+                if (spr.material.map) spr.material.map.dispose();
+                spr.material.dispose();
+            }
+        }
+
         function animateAvatarLimbs(mesh, isMoving, dt, now) {
             const u = mesh.userData;
             if (!u) return;
-            // Clear expired speech bubble
+            // Clear expired speech bubble & free GPU texture memory
             if (u.bubble && now > u.bubbleUntil) {
                 mesh.remove(u.bubble);
+                disposeSprite(u.bubble);
                 u.bubble = null;
             }
             // Active Emotes
@@ -721,11 +747,27 @@
 
         function showAvatarSpeech(mesh, text) {
             if (!mesh || !mesh.userData) return;
-            if (mesh.userData.bubble) mesh.remove(mesh.userData.bubble);
+            if (mesh.userData.bubble) {
+                mesh.remove(mesh.userData.bubble);
+                disposeSprite(mesh.userData.bubble);
+            }
             const b = createSpeechBubble(text);
             mesh.add(b);
             mesh.userData.bubble = b;
             mesh.userData.bubbleUntil = performance.now() + 5500;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function triggerMobileJump() {
+            if (localPlayer.onGround) {
+                localPlayer.vy = 13.0 / Math.sqrt(Math.max(0.3, liveOps.gravity));
+                localPlayer.onGround = false;
+            }
         }
 
         // -----------------------------------------------------------------
@@ -798,8 +840,8 @@
             document.getElementById('hudPlayers').textContent = Math.max(1, (list || []).length);
             el.innerHTML = (list || []).map((p, idx) => `
                 <div class="flex items-center justify-between px-2 py-1 rounded-lg ${p.id === selfId ? 'bg-cyan-500/25 border border-cyan-400/40' : 'bg-[#050d22]/60'}">
-                    <span class="truncate font-semibold text-white"><span class="text-blue-400 mr-1">#${idx + 1}</span>${p.name}</span>
-                    <span class="font-mono font-bold text-amber-300">${p.credits}</span>
+                    <span class="truncate font-semibold text-white"><span class="text-blue-400 mr-1">#${idx + 1}</span>${escapeHtml(p.name)}</span>
+                    <span class="font-mono font-bold text-amber-300">${Number(p.credits) || 0}</span>
                 </div>
             `).join('');
         }
@@ -811,12 +853,12 @@
                 return `
                     <div class="flex items-center justify-between p-3 rounded-xl bg-[#050d22] border border-blue-500/30">
                         <div>
-                            <div class="font-bold text-white">${item.name}</div>
-                            <div class="text-[11px] text-blue-300">${isSold ? 'SOLD to ' + (item.buyer || 'Player') : 'Price: ' + item.price + ' Credits'}</div>
+                            <div class="font-bold text-white">${escapeHtml(item.name)}</div>
+                            <div class="text-[11px] text-blue-300">${isSold ? 'SOLD to ' + escapeHtml(item.buyer || 'Player') : 'Price: ' + (Number(item.price) || 0) + ' Credits'}</div>
                         </div>
                         ${isSold
                             ? '<span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold text-[11px]">SOLD</span>'
-                            : `<button onclick="buyListing('${item.id}')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all">Buy (${item.price})</button>`
+                            : `<button onclick="buyListing('${escapeHtml(item.id)}')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all">Buy (${Number(item.price) || 0})</button>`
                         }
                     </div>
                 `;
@@ -863,6 +905,7 @@
             }
         }
 
+        let pingTimer = null;
         function connectWorld() {
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const token = localStorage.getItem('bloxcloud_token') || '';
@@ -872,7 +915,8 @@
             ws.onopen = () => {
                 document.getElementById('connBadge').textContent = 'LIVE SYNC';
                 pushLog('Connected to BloxCloud 3D Social Plaza', 'text-emerald-300');
-                setInterval(() => {
+                if (pingTimer) clearInterval(pingTimer);
+                pingTimer = setInterval(() => {
                     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'PING', clientTime: performance.now() }));
                 }, 2500);
             };
