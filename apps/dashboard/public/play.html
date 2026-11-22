@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloxCloud 3D Multiplayer Sandbox | Live WebGL Demo</title>
+    <meta name="description" content="Explore BloxCloud's live 3D WebGL multiplayer world powered by real-time WebSockets, atomic anti-dupe economy locking, and instant LiveOps physics controls.">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #030816; font-family: 'Plus Jakarta Sans', sans-serif; color: #f8fafc; user-select: none; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        #canvasWrap { position: fixed; inset: 0; z-index: 1; }
+        .hud-glass {
+            background: rgba(7, 17, 41, 0.78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+        .pointer-auto { pointer-events: auto; }
+        .pointer-none { pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="canvasWrap"></div>
+
+    <!-- HUD Overlay -->
+    <div class="fixed inset-0 z-10 pointer-none flex flex-col justify-between p-4">
+        <!-- Top Row -->
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <!-- Top-Left: Live Engine Telemetry -->
+            <div class="hud-glass pointer-auto rounded-2xl px-4 py-3 space-y-1.5 shadow-2xl">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold shadow-md shadow-cyan-500/30">
+                        <i class="fa-solid fa-cube text-sm"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
+                            <span>BLOXCLOUD 3D WORLD</span>
+                            <span id="connBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-bold uppercase">CONNECTING</span>
+                        </div>
+                        <div class="text-[11px] text-blue-200 font-mono flex items-center space-x-3 mt-0.5">
+                            <span>Players: <strong id="hudPlayers" class="text-cyan-300">1</strong></span>
+                            <span>Ping: <strong id="hudPing" class="text-emerald-300">-- ms</strong></span>
+                            <span>FPS: <strong id="hudFps" class="text-white">60</strong></span>
+                            <span>Credits: <strong id="hudCredits" class="text-amber-300">200</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top-Center: Global LiveOps Broadcast Banner -->
+            <div id="worldBroadcastBanner" class="hidden hud-glass pointer-auto rounded-2xl px-5 py-2.5 border border-rose-500/60 bg-rose-950/70 text-center max-w-md shadow-2xl">
+                <div class="text-[10px] font-extrabold uppercase tracking-widest text-rose-300">GLOBAL LIVEOPS BROADCAST</div>
+                <div id="worldBroadcastText" class="text-xs font-bold text-white mt-0.5"></div>
+            </div>
+
+            <!-- Top-Right: Action Controls -->
+            <div class="flex flex-wrap items-center gap-2 pointer-auto">
+                <button onclick="togglePanel('auctionModal')" class="hud-glass hover:bg-blue-900/70 px-3.5 py-2.5 rounded-xl text-xs font-bold text-amber-200 border border-amber-400/40 flex items-center space-x-1.5 transition-all">
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                    <span>Anti-Dupe Auction</span>
+                </button>
+                <button onclick="togglePanel('liveOpsModal')" class="hud-glass hover:bg-blue-900/70 px-3.5 py-2.5 rounded-xl text-xs font-bold text-cyan-200 border border-cyan-400/40 flex items-center space-x-1.5 transition-all">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <span>LiveOps Physics</span>
+                </button>
+                <a href="/" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-extrabold flex items-center space-x-1.5 shadow-lg shadow-cyan-500/30 transition-all">
+                    <span>Build Your Own Game</span>
+                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Middle Right: Live Leaderboard + Gamer Tag -->
+        <div class="flex justify-end my-auto">
+            <div class="hud-glass pointer-auto rounded-2xl p-3.5 w-60 space-y-2.5 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-blue-500/20 pb-2">
+                    <span class="text-[11px] font-extrabold uppercase tracking-wider text-cyan-300">Live Leaderboard</span>
+                    <span id="hudGravityTag" class="text-[10px] font-mono text-blue-300">1.0G • 1.0x</span>
+                </div>
+                <div id="leaderboardList" class="space-y-1.5 text-xs max-h-40 overflow-y-auto">
+                    <div class="text-blue-300/70 text-[11px]">Syncing players...</div>
+                </div>
+                <div class="pt-2 border-t border-blue-500/20 flex items-center gap-1.5">
+                    <input id="playerNameInput" type="text" maxlength="16" placeholder="Your tag..." class="flex-1 bg-[#050d22] border border-blue-500/40 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-cyan-400">
+                    <button onclick="updatePlayerName()" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-[11px] font-bold text-white">Set</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Packet Feed + Controls Hint -->
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <!-- Live Network & Anti-Dupe Event Feed -->
+            <div class="hud-glass pointer-auto rounded-2xl p-3 w-full max-w-md space-y-1.5 shadow-2xl">
+                <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                    <span>Live BloxCloud WebSocket Feed</span>
+                    <span>Dupes Blocked: <strong id="hudDupesBlocked" class="text-rose-400">0</strong></span>
+                </div>
+                <div id="eventFeed" class="font-mono text-[11px] space-y-1 max-h-24 overflow-y-auto text-blue-100/90">
+                    <div class="text-cyan-300">&gt; Connecting to wss://bloxcloud.world/ws/world...</div>
+                </div>
+            </div>
+
+            <!-- Controls Hint -->
+            <div class="hud-glass pointer-auto rounded-xl px-4 py-2 text-[11px] text-blue-200 font-semibold flex items-center space-x-3">
+                <span><strong class="text-white">WASD</strong> Move</span>
+                <span><strong class="text-white">SPACE</strong> Jump</span>
+                <span><strong class="text-white">SHIFT</strong> Boost</span>
+                <span><strong class="text-white">DRAG</strong> Orbit Camera</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Live Atomic Anti-Dupe Auction House -->
+    <div id="auctionModal" class="hidden fixed inset-0 z-30 bg-[#020817]/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="hud-glass rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl border border-amber-400/40">
+            <div class="flex items-center justify-between border-b border-blue-500/25 pb-3">
+                <div>
+                    <h2 class="text-base font-extrabold text-white">Live Cross-Server Auction House</h2>
+                    <p class="text-[11px] text-blue-200">Backed by BloxCloud single-threaded atomic locking. Collect glowing crystals to earn credits.</p>
+                </div>
+                <button onclick="togglePanel('auctionModal')" class="text-blue-300 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="auctionItemsList" class="space-y-2 text-xs"></div>
+
+            <div class="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 space-y-2">
+                <div class="text-xs font-bold text-rose-200">Test BloxCloud Anti-Dupe Protection Live</div>
+                <p class="text-[11px] text-rose-200/80">Fires 2 simultaneous purchase requests for the exact same item on the same millisecond to prove the server blocks item duplication.</p>
+                <button onclick="simulateDupeAttack()" class="w-full py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-all">
+                    Simulate Concurrent Dupe Exploit
+                </button>
+            </div>
+            <div id="auctionFeedback" class="hidden text-xs font-mono p-2.5 rounded-lg bg-black/50 border border-blue-500/30"></div>
+        </div>
+    </div>
+
+    <!-- Modal: LiveOps Physics & Global Broadcast -->
+    <div id="liveOpsModal" class="hidden fixed inset-0 z-30 bg-[#020817]/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="hud-glass rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl border border-cyan-400/40">
+            <div class="flex items-center justify-between border-b border-blue-500/25 pb-3">
+                <div>
+                    <h2 class="text-base font-extrabold text-white">LiveOps Real-Time World Controls</h2>
+                    <p class="text-[11px] text-blue-200">Changes sync immediately to every connected player in this 3D world with zero restarts.</p>
+                </div>
+                <button onclick="togglePanel('liveOpsModal')" class="text-blue-300 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <div class="font-bold text-blue-200 mb-1.5">World Gravity Preset</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setLiveOps({ gravity: 0.35 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">Moon (0.35G)</button>
+                        <button onclick="setLiveOps({ gravity: 1.0 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">Normal (1.0G)</button>
+                        <button onclick="setLiveOps({ gravity: 1.7 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">Heavy (1.7G)</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="font-bold text-blue-200 mb-1.5">Player Speed Multiplier</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setLiveOps({ speedMultiplier: 1.0 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">1.0x Normal</button>
+                        <button onclick="setLiveOps({ speedMultiplier: 1.6 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">1.6x Fast</button>
+                        <button onclick="setLiveOps({ speedMultiplier: 2.2 })" class="py-2 rounded-lg bg-blue-950 hover:bg-cyan-600 border border-blue-500/40 font-bold text-white transition-all">2.2x Hyper</button>
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-blue-500/20 space-y-2">
+                    <div class="font-bold text-blue-200">Push Global Broadcast to All Connected Players</div>
+                    <div class="flex gap-2">
+                        <input id="broadcastInput" type="text" maxlength="90" placeholder="e.g. 2x Crystal Event Live Now!" class="flex-1 bg-[#050d22] border border-blue-500/40 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-400">
+                        <button onclick="sendWorldBroadcast()" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 font-bold text-white">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // -----------------------------------------------------------------
+        // 1. THREE.JS 3D CYBER-WORLD ENGINE
+        // -----------------------------------------------------------------
+        const wrap = document.getElementById('canvasWrap');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030816);
+        scene.fog = new THREE.FogExp2(0x030816, 0.0115);
+
+        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 350);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        wrap.appendChild(renderer.domElement);
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0x3b82f6, 0.7));
+        const dirLight = new THREE.DirectionalLight(0x67e8f9, 1.2);
+        dirLight.position.set(30, 60, 25);
+        scene.add(dirLight);
+        const coreLight = new THREE.PointLight(0x00f2fe, 4.5, 65);
+        coreLight.position.set(0, 12, 0);
+        scene.add(coreLight);
+
+        // Floor & Illuminated Cyber Grid
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(240, 240),
+            new THREE.MeshStandardMaterial({ color: 0x050e24, roughness: 0.75, metalness: 0.35 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        const gridHelper = new THREE.GridHelper(180, 60, 0x0ea5e9, 0x102554);
+        gridHelper.position.y = 0.02;
+        scene.add(gridHelper);
+
+        // Concentric Neon Arena Rings
+        [14, 34, 60, 82].forEach((rad, i) => {
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(rad - 0.18, rad, 96),
+                new THREE.MeshBasicMaterial({ color: i === 3 ? 0xf43f5e : 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: i === 3 ? 0.5 : 0.25 })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.04;
+            scene.add(ring);
+        });
+
+        // Central BloxCloud Monolith Core
+        const coreGroup = new THREE.Group();
+        coreGroup.position.set(0, 9.5, 0);
+        const monolith = new THREE.Mesh(
+            new THREE.OctahedronGeometry(4.2, 0),
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.8, wireframe: false, transparent: true, opacity: 0.88, metalness: 0.6, roughness: 0.15 })
+        );
+        const monolithWire = new THREE.Mesh(
+            new THREE.OctahedronGeometry(4.6, 0),
+            new THREE.MeshBasicMaterial({ color: 0x67e8f9, wireframe: true, transparent: true, opacity: 0.45 })
+        );
+        const orbitRing1 = new THREE.Mesh(
+            new THREE.TorusGeometry(7.2, 0.12, 12, 96),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75 })
+        );
+        const orbitRing2 = new THREE.Mesh(
+            new THREE.TorusGeometry(9.2, 0.08, 12, 96),
+            new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.6 })
+        );
+        orbitRing2.rotation.x = Math.PI / 3;
+        coreGroup.add(monolith, monolithWire, orbitRing1, orbitRing2);
+        scene.add(coreGroup);
+
+        // 8 Perimeter Energy Pylons
+        const pylons = [];
+        for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            const px = Math.cos(a) * 76;
+            const pz = Math.sin(a) * 76;
+            const tower = new THREE.Mesh(
+                new THREE.BoxGeometry(2.4, 22, 2.4),
+                new THREE.MeshStandardMaterial({ color: 0x0b1c44, emissive: 0x0369a1, emissiveIntensity: 0.35, metalness: 0.5 })
+            );
+            tower.position.set(px, 11, pz);
+            scene.add(tower);
+            const beacon = new THREE.Mesh(
+                new THREE.TorusGeometry(2.2, 0.15, 8, 32),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            );
+            beacon.position.set(px, 21, pz);
+            beacon.rotation.x = Math.PI / 2;
+            scene.add(beacon);
+            pylons.push(beacon);
+        }
+
+        // 6 Floating Elevated Platforms (Parkour pads)
+        const platforms = [];
+        for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const px = Math.cos(a) * 24;
+            const pz = Math.sin(a) * 24;
+            const py = 2.2 + (i % 2) * 2.2;
+            const plat = new THREE.Mesh(
+                new THREE.BoxGeometry(7, 0.6, 7),
+                new THREE.MeshStandardMaterial({ color: 0x0f2557, emissive: 0x0284c7, emissiveIntensity: 0.4 })
+            );
+            plat.position.set(px, py, pz);
+            scene.add(plat);
+            platforms.push({ x: px, y: py + 0.3, z: pz, half: 3.6 });
+        }
+
+        // Starfield particles
+        const starGeo = new THREE.BufferGeometry();
+        const starVerts = [];
+        for (let i = 0; i < 600; i++) {
+            starVerts.push((Math.random() - 0.5) * 320, 12 + Math.random() * 110, (Math.random() - 0.5) * 320);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.55, transparent: true, opacity: 0.7 })));
+
+        // Particle Explosion System
+        const particles = [];
+        function spawnBurst(x, y, z, hexColor) {
+            const color = new THREE.Color(hexColor || '#22d3ee');
+            for (let i = 0; i < 16; i++) {
+                const m = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.28, 0.28, 0.28),
+                    new THREE.MeshBasicMaterial({ color })
+                );
+                m.position.set(x, y, z);
+                scene.add(m);
+                particles.push({
+                    mesh: m,
+                    vx: (Math.random() - 0.5) * 14,
+                    vy: 3 + Math.random() * 9,
+                    vz: (Math.random() - 0.5) * 14,
+                    life: 0.65,
+                });
+            }
+        }
+
+        // Helper: Floating Nameplate Sprite
+        function createNameplate(text, hexColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(4, 12, 32, 0.8)';
+            ctx.beginPath();
+            ctx.roundRect(16, 12, 224, 40, 14);
+            ctx.fill();
+            ctx.strokeStyle = hexColor || '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 33);
+            const tex = new THREE.CanvasTexture(canvas);
+            const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+            spr.scale.set(4.2, 1.05, 1);
+            spr.position.y = 2.6;
+            return spr;
+        }
+
+        // Helper: 3D Cyber-Avatar Mesh
+        function createAvatar(name, hexColor) {
+            const group = new THREE.Group();
+            const c = new THREE.Color(hexColor || '#38bdf8');
+            const body = new THREE.Mesh(
+                new THREE.ConeGeometry(0.85, 2.0, 6),
+                new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, metalness: 0.5, roughness: 0.2 })
+            );
+            body.rotation.x = Math.PI;
+            body.position.y = 0.2;
+            const halo = new THREE.Mesh(
+                new THREE.TorusGeometry(1.15, 0.08, 8, 32),
+                new THREE.MeshBasicMaterial({ color: c })
+            );
+            halo.rotation.x = Math.PI / 2;
+            halo.position.y = 0.5;
+            const plate = createNameplate(name, hexColor);
+            group.add(body, halo, plate);
+            group.userData = { halo, plate, color: hexColor };
+            scene.add(group);
+            return group;
+        }
+
+        // -----------------------------------------------------------------
+        // 2. MULTIPLAYER STATE & WEBSOCKET SYNC
+        // -----------------------------------------------------------------
+        let ws = null;
+        let selfId = null;
+        let myCredits = 200;
+        let liveOps = { gravity: 1.0, speedMultiplier: 1.0 };
+        const remotePlayers = new Map(); // id -> { mesh, tx, ty, tz, trotY, name }
+        const crystalMeshes = new Map(); // crystalId -> { mesh, data }
+
+        const localPlayer = {
+            mesh: null,
+            x: 0, y: 1.5, z: 16,
+            vx: 0, vy: 0, vz: 0,
+            rotY: 0,
+            onGround: true,
+        };
+
+        function pushLog(text, colorCls = 'text-blue-200') {
+            const feed = document.getElementById('eventFeed');
+            const div = document.createElement('div');
+            div.className = colorCls;
+            div.textContent = '> ' + text;
+            feed.prepend(div);
+            while (feed.children.length > 14) feed.lastChild.remove();
+        }
+
+        function addCrystalToScene(c) {
+            if (crystalMeshes.has(c.id)) return;
+            const color = new THREE.Color(c.color || '#22d3ee');
+            const mesh = new THREE.Mesh(
+                new THREE.OctahedronGeometry(c.isGold ? 1.05 : 0.78, 0),
+                new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.9, roughness: 0.1, metalness: 0.4 })
+            );
+            mesh.position.set(c.x, c.y, c.z);
+            scene.add(mesh);
+            crystalMeshes.set(c.id, { mesh, data: c });
+        }
+
+        function renderLeaderboard(list) {
+            const el = document.getElementById('leaderboardList');
+            document.getElementById('hudPlayers').textContent = Math.max(1, (list || []).length);
+            el.innerHTML = (list || []).map((p, idx) => `
+                <div class="flex items-center justify-between px-2 py-1 rounded-lg ${p.id === selfId ? 'bg-cyan-500/20 border border-cyan-400/40' : 'bg-[#050d22]/60'}">
+                    <span class="truncate font-semibold text-white"><span class="text-blue-400 mr-1">#${idx + 1}</span>${p.name}</span>
+                    <span class="font-mono font-bold text-amber-300">${p.credits}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderAuctionListings(listings) {
+            const el = document.getElementById('auctionItemsList');
+            el.innerHTML = (listings || []).map(item => {
+                const isSold = item.status !== 'ACTIVE';
+                return `
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-[#050d22] border border-blue-500/30">
+                        <div>
+                            <div class="font-bold text-white">${item.name}</div>
+                            <div class="text-[11px] text-blue-300">${isSold ? 'SOLD to ' + (item.buyer || 'Player') : 'Price: ' + item.price + ' Credits'}</div>
+                        </div>
+                        ${isSold
+                            ? '<span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold text-[11px]">SOLD</span>'
+                            : `<button onclick="buyListing('${item.id}')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-all">Buy (${item.price})</button>`
+                        }
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showBroadcastBanner(b) {
+            if (!b || !b.message) return;
+            const el = document.getElementById('worldBroadcastBanner');
+            document.getElementById('worldBroadcastText').textContent = `${b.message} — ${b.author}`;
+            el.classList.remove('hidden');
+            clearTimeout(window._bcastTimer);
+            window._bcastTimer = setTimeout(() => el.classList.add('hidden'), 10000);
+        }
+
+        function connectWorld() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${location.host}/ws/world`);
+
+            ws.onopen = () => {
+                const badge = document.getElementById('connBadge');
+                badge.textContent = 'LIVE SYNC';
+                pushLog('Connected to BloxCloud 3D Multiplayer Engine', 'text-emerald-300');
+                setInterval(() => {
+                    if (ws && ws.readyState === 1) {
+                        ws.send(JSON.stringify({ type: 'PING', clientTime: performance.now() }));
+                    }
+                }, 2500);
+            };
+
+            ws.onmessage = (ev) => {
+                const msg = JSON.parse(ev.data);
+                switch (msg.type) {
+                    case 'PONG': {
+                        const rtt = Math.max(1, Math.round(performance.now() - msg.clientTime));
+                        document.getElementById('hudPing').textContent = `${rtt} ms`;
+                        break;
+                    }
+                    case 'WORLD_INIT': {
+                        selfId = msg.selfId;
+                        myCredits = msg.player.credits;
+                        document.getElementById('hudCredits').textContent = myCredits;
+                        document.getElementById('playerNameInput').value = msg.player.name;
+                        document.getElementById('hudDupesBlocked').textContent = msg.dupeBlocksCount || 0;
+                        liveOps = msg.liveOps || liveOps;
+                        document.getElementById('hudGravityTag').textContent = `${liveOps.gravity.toFixed(1)}G • ${liveOps.speedMultiplier.toFixed(1)}x`;
+
+                        localPlayer.x = msg.player.x;
+                        localPlayer.y = msg.player.y;
+                        localPlayer.z = msg.player.z;
+                        if (localPlayer.mesh) scene.remove(localPlayer.mesh);
+                        localPlayer.mesh = createAvatar(msg.player.name, msg.player.color);
+                        localPlayer.mesh.position.set(localPlayer.x, localPlayer.y, localPlayer.z);
+
+                        (msg.players || []).forEach(p => {
+                            if (p.id === selfId) return;
+                            const m = createAvatar(p.name, p.color);
+                            m.position.set(p.x, p.y, p.z);
+                            remotePlayers.set(p.id, { mesh: m, tx: p.x, ty: p.y, tz: p.z, trotY: p.rotY, name: p.name });
+                        });
+                        (msg.crystals || []).forEach(addCrystalToScene);
+                        renderLeaderboard(msg.leaderboard);
+                        renderAuctionListings(msg.listings);
+                        if (liveOps.activeBroadcast) showBroadcastBanner(liveOps.activeBroadcast);
+                        break;
+                    }
+                    case 'PLAYER_JOIN': {
+                        if (msg.player.id === selfId) return;
+                        const m = createAvatar(msg.player.name, msg.player.color);
+                        m.position.set(msg.player.x, msg.player.y, msg.player.z);
+                        remotePlayers.set(msg.player.id, { mesh: m, tx: msg.player.x, ty: msg.player.y, tz: msg.player.z, trotY: 0, name: msg.player.name });
+                        renderLeaderboard(msg.leaderboard);
+                        pushLog(`${msg.player.name} joined the 3D world`, 'text-cyan-300');
+                        break;
+                    }
+                    case 'PLAYER_UPDATE': {
+                        if (msg.player.id === selfId && localPlayer.mesh) {
+                            localPlayer.mesh.remove(localPlayer.mesh.userData.plate);
+                            const np = createNameplate(msg.player.name, msg.player.color);
+                            localPlayer.mesh.add(np);
+                            localPlayer.mesh.userData.plate = np;
+                        } else if (remotePlayers.has(msg.player.id)) {
+                            const rp = remotePlayers.get(msg.player.id);
+                            rp.mesh.remove(rp.mesh.userData.plate);
+                            const np = createNameplate(msg.player.name, msg.player.color);
+                            rp.mesh.add(np);
+                            rp.mesh.userData.plate = np;
+                            rp.name = msg.player.name;
+                        }
+                        renderLeaderboard(msg.leaderboard);
+                        break;
+                    }
+                    case 'PLAYER_MOVE': {
+                        const rp = remotePlayers.get(msg.id);
+                        if (rp) {
+                            rp.tx = msg.x; rp.ty = msg.y; rp.tz = msg.z; rp.trotY = msg.rotY;
+                        }
+                        break;
+                    }
+                    case 'PLAYER_LEAVE': {
+                        const rp = remotePlayers.get(msg.id);
+                        if (rp) {
+                            scene.remove(rp.mesh);
+                            remotePlayers.delete(msg.id);
+                            pushLog(`${rp.name} disconnected`, 'text-slate-400');
+                        }
+                        renderLeaderboard(msg.leaderboard);
+                        break;
+                    }
+                    case 'CRYSTAL_CLAIMED': {
+                        const entry = crystalMeshes.get(msg.crystalId);
+                        if (entry) {
+                            spawnBurst(entry.data.x, entry.data.y, entry.data.z, entry.data.color);
+                            scene.remove(entry.mesh);
+                            crystalMeshes.delete(msg.crystalId);
+                        }
+                        if (msg.replacement) addCrystalToScene(msg.replacement);
+                        if (msg.claimedById === selfId) {
+                            myCredits = msg.newCredits;
+                            document.getElementById('hudCredits').textContent = myCredits;
+                        }
+                        renderLeaderboard(msg.leaderboard);
+                        pushLog(`${msg.claimedBy} claimed +${msg.gained} crystal (Atomic OK)`, 'text-amber-300');
+                        break;
+                    }
+                    case 'AUCTION_UPDATE': {
+                        renderAuctionListings(msg.listings);
+                        if (msg.buyerId === selfId) {
+                            myCredits = msg.buyerCredits;
+                            document.getElementById('hudCredits').textContent = myCredits;
+                        }
+                        if (msg.leaderboard) renderLeaderboard(msg.leaderboard);
+                        if (msg.eventText) pushLog(msg.eventText, 'text-emerald-300');
+                        break;
+                    }
+                    case 'AUCTION_RESULT': {
+                        const fb = document.getElementById('auctionFeedback');
+                        fb.classList.remove('hidden');
+                        if (msg.success) {
+                            fb.className = 'text-xs font-mono p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300';
+                            fb.textContent = msg.message;
+                        } else {
+                            fb.className = 'text-xs font-mono p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300';
+                            fb.textContent = `[${msg.code}] ${msg.message}`;
+                            if (msg.dupeBlocksCount !== undefined) {
+                                document.getElementById('hudDupesBlocked').textContent = msg.dupeBlocksCount;
+                            }
+                            pushLog(`[${msg.code}] ${msg.message}`, 'text-rose-400');
+                        }
+                        break;
+                    }
+                    case 'LIVEOPS_UPDATE': {
+                        liveOps = msg.liveOps;
+                        document.getElementById('hudGravityTag').textContent = `${liveOps.gravity.toFixed(1)}G • ${liveOps.speedMultiplier.toFixed(1)}x`;
+                        pushLog(`LiveOps updated by ${msg.updatedBy}: ${liveOps.gravity}G / ${liveOps.speedMultiplier}x speed`, 'text-cyan-300');
+                        break;
+                    }
+                    case 'GLOBAL_BROADCAST': {
+                        showBroadcastBanner(msg.broadcast);
+                        pushLog(`BROADCAST: "${msg.broadcast.message}"`, 'text-rose-300');
+                        break;
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connBadge').textContent = 'RECONNECTING';
+                setTimeout(connectWorld, 2000);
+            };
+        }
+
+        // UI Actions
+        function togglePanel(id) {
+            document.getElementById(id).classList.toggle('hidden');
+        }
+        function updatePlayerName() {
+            const val = document.getElementById('playerNameInput').value.trim();
+            if (ws && ws.readyState === 1 && val) {
+                ws.send(JSON.stringify({ type: 'SET_NAME', name: val }));
+            }
+        }
+        function buyListing(listingId) {
+            if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'BUY_LISTING', listingId }));
+        }
+        function simulateDupeAttack() {
+            if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'SIMULATE_DUPE' }));
+        }
+        function setLiveOps(patch) {
+            if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'LIVEOPS_SET', ...patch }));
+        }
+        function sendWorldBroadcast() {
+            const inp = document.getElementById('broadcastInput');
+            const msg = inp.value.trim();
+            if (ws && ws.readyState === 1 && msg) {
+                ws.send(JSON.stringify({ type: 'BROADCAST_MSG', message: msg }));
+                inp.value = '';
+                togglePanel('liveOpsModal');
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // 3. CONTROLS & 60FPS PHYSICS LOOP
+        // -----------------------------------------------------------------
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+            keys[e.code] = true;
+            if (e.code === 'Space' && localPlayer.onGround) {
+                localPlayer.vy = 13.5 / Math.sqrt(Math.max(0.3, liveOps.gravity));
+                localPlayer.onGround = false;
+            }
+        });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        // Camera Orbit by Mouse Drag
+        let camYaw = 0;
+        let camPitch = 0.38;
+        let isDragging = false;
+        let lastX = 0, lastY = 0;
+        renderer.domElement.addEventListener('pointerdown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+        window.addEventListener('pointerup', () => { isDragging = false; });
+        window.addEventListener('pointermove', e => {
+            if (!isDragging) return;
+            camYaw -= (e.clientX - lastX) * 0.006;
+            camPitch = Math.max(0.12, Math.min(1.15, camPitch + (e.clientY - lastY) * 0.005));
+            lastX = e.clientX; lastY = e.clientY;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        let lastTime = performance.now();
+        let lastNetSend = 0;
+        let fpsFrames = 0, fpsTimer = performance.now();
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const dt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            // FPS Counter
+            fpsFrames++;
+            if (now - fpsTimer >= 500) {
+                document.getElementById('hudFps').textContent = Math.round((fpsFrames * 1000) / (now - fpsTimer));
+                fpsFrames = 0; fpsTimer = now;
+            }
+
+            // Animate Core & Pylons
+            monolith.rotation.y += dt * 0.7;
+            monolithWire.rotation.y -= dt * 0.45;
+            orbitRing1.rotation.z += dt * 0.8;
+            orbitRing1.rotation.x = Math.sin(now * 0.0008) * 0.4;
+            orbitRing2.rotation.y += dt * 0.5;
+            pylons.forEach((b, i) => { b.rotation.z += dt * (1.2 + i * 0.08); });
+
+            // Local Player Movement
+            let moveX = 0, moveZ = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+            const boost = (keys['ShiftLeft'] || keys['ShiftRight']) ? 1.65 : 1.0;
+            const speed = 17 * liveOps.speedMultiplier * boost;
+
+            if (moveX !== 0 || moveZ !== 0) {
+                const len = Math.hypot(moveX, moveZ);
+                moveX /= len; moveZ /= len;
+                const sin = Math.sin(camYaw), cos = Math.cos(camYaw);
+                const wx = moveX * cos + moveZ * sin;
+                const wz = -moveX * sin + moveZ * cos;
+                localPlayer.x = Math.max(-80, Math.min(80, localPlayer.x + wx * speed * dt));
+                localPlayer.z = Math.max(-80, Math.min(80, localPlayer.z + wz * speed * dt));
+                localPlayer.rotY = Math.atan2(wx, wz);
+            }
+
+            // Vertical Gravity & Platforms
+            localPlayer.vy -= 30 * liveOps.gravity * dt;
+            localPlayer.y += localPlayer.vy * dt;
+
+            let groundY = 1.5;
+            for (const p of platforms) {
+                if (Math.abs(localPlayer.x - p.x) < p.half && Math.abs(localPlayer.z - p.z) < p.half) {
+                    if (localPlayer.y >= p.y + 0.8) groundY = Math.max(groundY, p.y + 1.2);
+                }
+            }
+            if (localPlayer.y <= groundY) {
+                localPlayer.y = groundY;
+                localPlayer.vy = 0;
+                localPlayer.onGround = true;
+            }
+
+            if (localPlayer.mesh) {
+                localPlayer.mesh.position.set(localPlayer.x, localPlayer.y, localPlayer.z);
+                localPlayer.mesh.rotation.y = localPlayer.rotY;
+                localPlayer.mesh.userData.halo.rotation.z += dt * 2.5;
+            }
+
+            // Network Sync (20 Hz)
+            if (ws && ws.readyState === 1 && now - lastNetSend > 50) {
+                lastNetSend = now;
+                ws.send(JSON.stringify({
+                    type: 'MOVE',
+                    x: Number(localPlayer.x.toFixed(2)),
+                    y: Number(localPlayer.y.toFixed(2)),
+                    z: Number(localPlayer.z.toFixed(2)),
+                    rotY: Number(localPlayer.rotY.toFixed(2)),
+                }));
+            }
+
+            // Crystal Bobbing & Auto-Claim
+            for (const [id, c] of crystalMeshes.entries()) {
+                c.mesh.rotation.y += dt * 2.2;
+                c.mesh.position.y = c.data.y + Math.sin(now * 0.003 + c.data.x) * 0.35;
+                const dx = localPlayer.x - c.data.x;
+                const dz = localPlayer.z - c.data.z;
+                if (dx * dx + dz * dz < 6.5 && ws && ws.readyState === 1) {
+                    ws.send(JSON.stringify({ type: 'CLAIM_CRYSTAL', crystalId: id }));
+                }
+            }
+
+            // Smooth Remote Players Interpolation
+            for (const rp of remotePlayers.values()) {
+                rp.mesh.position.x += (rp.tx - rp.mesh.position.x) * Math.min(1, dt * 12);
+                rp.mesh.position.y += (rp.ty - rp.mesh.position.y) * Math.min(1, dt * 12);
+                rp.mesh.position.z += (rp.tz - rp.mesh.position.z) * Math.min(1, dt * 12);
+                rp.mesh.rotation.y = rp.trotY;
+                rp.mesh.userData.halo.rotation.z += dt * 2.5;
+            }
+
+            // Update Burst Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.life -= dt;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                } else {
+                    p.vy -= 22 * dt;
+                    p.mesh.position.x += p.vx * dt;
+                    p.mesh.position.y += p.vy * dt;
+                    p.mesh.position.z += p.vz * dt;
+                    p.mesh.scale.setScalar(p.life / 0.65);
+                }
+            }
+
+            // Smooth 3rd-Person Chase Camera
+            const camDist = 15;
+            const targetCamX = localPlayer.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist;
+            const targetCamY = localPlayer.y + Math.sin(camPitch) * camDist + 2.2;
+            const targetCamZ = localPlayer.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist;
+            camera.position.x += (targetCamX - camera.position.x) * Math.min(1, dt * 9);
+            camera.position.y += (targetCamY - camera.position.y) * Math.min(1, dt * 9);
+            camera.position.z += (targetCamZ - camera.position.z) * Math.min(1, dt * 9);
+            camera.lookAt(localPlayer.x, localPlayer.y + 1.2, localPlayer.z);
+
+            renderer.render(scene, camera);
+        }
+
+        connectWorld();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

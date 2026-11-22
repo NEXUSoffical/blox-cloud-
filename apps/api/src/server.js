@@ -19,6 +19,7 @@ const marketplace = require('./marketplace');
 const alerts = require('./alerts');
 const db = require('./db');
 const robloxGenerator = require('./robloxGenerator');
+const worldEngine = require('./worldEngine');
 
 // In-memory cache for AI generated Roblox games (expires after 1 hour)
 const generatedGamesCache = new Map();
@@ -92,6 +93,10 @@ app.get(['/legal', '/terms', '/privacy'], (req, res) => {
 
 app.get('/status', (req, res) => {
     res.sendFile('status.html', { root: dashboardPath });
+});
+
+app.get('/play', (req, res) => {
+    res.sendFile('play.html', { root: dashboardPath });
 });
 
 // Path to Luau, Minecraft & Web/JS SDKs
@@ -1052,6 +1057,11 @@ app.get('/api/v1/generator/roblox/download/:id', (req, res) => {
 // WEBSOCKET CONNECTION
 // -----------------------------------------------------------------------------
 wss.on('connection', (ws, req) => {
+    // Public 3D Multiplayer World Showcase (/ws/world)
+    if (req.url && req.url.startsWith('/ws/world')) {
+        return worldEngine.handleConnection(ws);
+    }
+
     // Only logged-in dashboard sessions may subscribe to the live feed
     let token = null;
     try {
