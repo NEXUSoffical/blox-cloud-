@@ -95,7 +95,10 @@ app.get('/status', (req, res) => {
     res.sendFile('status.html', { root: dashboardPath });
 });
 
-app.get('/play', (req, res) => {
+app.get(['/play', '/play/embed'], (req, res) => {
+    // Allow X / Twitter Player Card iframe embedding on /play and /play/embed
+    res.removeHeader('X-Frame-Options');
+    res.set('Content-Security-Policy', "frame-ancestors 'self' https://x.com https://twitter.com https://*.x.com https://*.twitter.com");
     res.sendFile('play.html', { root: dashboardPath });
 });
 
