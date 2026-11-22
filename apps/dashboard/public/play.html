@@ -779,8 +779,27 @@
         let myCustom = { name: 'Player', color: '#3b82f6', skinTone: '#ffdbac', accessory: 'crown' };
         let liveOps = { gravity: 1.0, speedMultiplier: 1.0 };
         const remotePlayers = new Map(); // id -> { mesh, tx, ty, tz, trotY, name }
-        const residentNPCs = new Map(); // resId -> { mesh, x, z, targetX, targetZ, waitUntil, data }
+        const residentNPCs = new Map(); // resId -> { mesh, x, z, phase, data }
         const crystalMeshes = new Map();
+
+        // 2 Clearly Labeled Official BloxCloud Demo Bots (NOT counted in Online or Leaderboard)
+        const demoBots = [
+            {
+                data: { name: 'Guide [BOT]', color: '#06b6d4', skinTone: '#ffdbac', accessory: 'visor' },
+                x: -7, y: 0, z: 9, vy: 0, targetX: -12, targetZ: 14, waitUntil: 0, lastTipAt: 0,
+                tips: ['Try the Anti-Dupe test!', 'Click LiveOps -> Moon Gravity!', 'Customize your 3D avatar!'],
+                tipIdx: 0,
+            },
+            {
+                data: { name: 'Physics [BOT]', color: '#a855f7', skinTone: '#e0ac69', accessory: 'headphones' },
+                x: 9, y: 0, z: 7, vy: 0, targetX: 16, targetZ: -6, waitUntil: 0, nextJumpAt: 2500,
+                tips: [],
+            },
+        ];
+        demoBots.forEach(bot => {
+            bot.mesh = createMiiAvatar(bot.data, false);
+            bot.mesh.position.set(bot.x, 0, bot.z);
+        });
 
         function syncResidents(list) {
             const incomingIds = new Set((list || []).map(r => r.id));
@@ -1262,6 +1281,55 @@
                     z.sprite.scale.set(scale, scale, 1);
                     z.sprite.material.opacity = cycle < 0.2 ? (cycle / 0.2) : (1 - cycle);
                 });
+            }
+
+            // Animate 2 Clearly Labeled Official BloxCloud Demo Bots (react live to LiveOps gravity & speed!)
+            for (const bot of demoBots) {
+                const pDx = localPlayer.x - bot.x;
+                const pDz = localPlayer.z - bot.z;
+                const distToPlayer = Math.hypot(pDx, pDz);
+
+                // Guide Bot waves & shows helpful tip when player approaches
+                if (bot.tips.length > 0 && distToPlayer < 8.5 && now - bot.lastTipAt > 11000) {
+                    bot.lastTipAt = now;
+                    bot.waitUntil = now + 3200;
+                    bot.mesh.rotation.y = Math.atan2(pDx, pDz);
+                    bot.mesh.userData.emote = 'wave';
+                    bot.mesh.userData.emoteUntil = now + 2400;
+                    showAvatarSpeech(bot.mesh, bot.tips[bot.tipIdx % bot.tips.length]);
+                    bot.tipIdx++;
+                }
+
+                // Physics Bot jumps periodically using LIVE liveOps.gravity so visitors see Moon Gravity live!
+                if (bot.nextJumpAt && now > bot.nextJumpAt && bot.y <= 0.01) {
+                    bot.vy = 12.5 / Math.sqrt(Math.max(0.3, liveOps.gravity));
+                    bot.nextJumpAt = now + 2600 + Math.random() * 1800;
+                }
+                bot.vy -= 30 * liveOps.gravity * dt;
+                bot.y = Math.max(0, bot.y + bot.vy * dt);
+                if (bot.y === 0) bot.vy = 0;
+
+                let botMoving = false;
+                if (now > bot.waitUntil) {
+                    const dx = bot.targetX - bot.x;
+                    const dz = bot.targetZ - bot.z;
+                    const d = Math.hypot(dx, dz);
+                    if (d < 1.0) {
+                        const a = Math.random() * Math.PI * 2;
+                        const r = 8 + Math.random() * 18;
+                        bot.targetX = Math.cos(a) * r;
+                        bot.targetZ = Math.sin(a) * r;
+                        bot.waitUntil = now + 1500 + Math.random() * 2000;
+                    } else {
+                        const spd = (bot.nextJumpAt ? 7.0 : 4.5) * liveOps.speedMultiplier;
+                        bot.x += (dx / d) * spd * dt;
+                        bot.z += (dz / d) * spd * dt;
+                        bot.mesh.rotation.y = Math.atan2(dx, dz);
+                        botMoving = true;
+                    }
+                }
+                bot.mesh.position.set(bot.x, bot.y, bot.z);
+                animateAvatarLimbs(bot.mesh, botMoving, dt, now);
             }
 
             // Particle Bursts
