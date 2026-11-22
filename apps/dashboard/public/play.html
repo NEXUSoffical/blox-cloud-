@@ -461,8 +461,27 @@
             return spr;
         }
 
-        // Helper: Expressive 3D Mii-Style Humanoid Character
-        function createMiiAvatar(playerData) {
+        // Helper: Floating "Z" sprite for sleeping offline studio residents
+        function createZzzSprite(letter) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 44px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 6;
+            ctx.strokeText(letter, 32, 34);
+            ctx.fillText(letter, 32, 34);
+            const tex = new THREE.CanvasTexture(canvas);
+            const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 }));
+            spr.scale.set(0.65, 0.65, 1);
+            return spr;
+        }
+
+        // Helper: Expressive 3D Mii-Style Humanoid Character (awake or sleeping offline resident)
+        function createMiiAvatar(playerData, isSleeping = false) {
             const group = new THREE.Group();
             const shirtHex = playerData.color || '#3b82f6';
             const skinHex = playerData.skinTone || '#ffdbac';
@@ -473,17 +492,18 @@
             const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
             const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
 
-            // Shadow blob on ground
+            // Shadow blob / soft cushion mat on ground
             const shadow = new THREE.Mesh(
-                new THREE.CircleGeometry(0.85, 24),
-                new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.22 })
+                new THREE.CircleGeometry(isSleeping ? 1.15 : 0.85, 24),
+                new THREE.MeshBasicMaterial({ color: isSleeping ? 0x38bdf8 : 0x0f172a, transparent: true, opacity: isSleeping ? 0.25 : 0.22 })
             );
             shadow.rotation.x = -Math.PI / 2;
             shadow.position.y = 0.05;
             group.add(shadow);
 
-            // Body Pivot (for bounce & dance)
+            // Body Pivot (lowered into sitting pose if sleeping)
             const bodyPivot = new THREE.Group();
+            if (isSleeping) bodyPivot.position.y = -0.52;
             group.add(bodyPivot);
 
             // Torso (rounded Mii-style body)
@@ -491,55 +511,68 @@
             torso.position.y = 1.35;
             bodyPivot.add(torso);
 
-            // Head
+            // Head Pivot (for gentle sleeping head-nod)
+            const headPivot = new THREE.Group();
+            headPivot.position.y = 2.42;
+            bodyPivot.add(headPivot);
+
             const head = new THREE.Mesh(new THREE.SphereGeometry(0.56, 20, 20), skinMat);
-            head.position.y = 2.42;
-            bodyPivot.add(head);
+            headPivot.add(head);
 
-            // Cute Eyes (+Z is forward)
-            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), eyeMat);
-            eyeL.position.set(-0.18, 2.48, 0.49);
-            const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), eyeMat);
-            eyeR.position.set(0.18, 2.48, 0.49);
-            // Smile
-            const smile = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 8, 16, Math.PI), eyeMat);
-            smile.rotation.z = Math.PI;
-            smile.position.set(0, 2.31, 0.51);
-            bodyPivot.add(eyeL, eyeR, smile);
+            if (isSleeping) {
+                // Closed peaceful sleeping eyes (- -)
+                const closedL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.05), eyeMat);
+                closedL.position.set(-0.18, 0.04, 0.52);
+                const closedR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.05), eyeMat);
+                closedR.position.set(0.18, 0.04, 0.52);
+                const mouth = new THREE.Mesh(new THREE.RingGeometry(0.03, 0.06, 12), eyeMat);
+                mouth.position.set(0, -0.14, 0.53);
+                headPivot.add(closedL, closedR, mouth);
+            } else {
+                // Cute Open Eyes (+Z is forward) & Smile
+                const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), eyeMat);
+                eyeL.position.set(-0.18, 0.06, 0.49);
+                const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10), eyeMat);
+                eyeR.position.set(0.18, 0.06, 0.49);
+                const smile = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 8, 16, Math.PI), eyeMat);
+                smile.rotation.z = Math.PI;
+                smile.position.set(0, -0.11, 0.51);
+                headPivot.add(eyeL, eyeR, smile);
+            }
 
-            // 3D Accessories
+            // 3D Accessories (attached to headPivot so they nod when sleeping!)
             if (accessory === 'crown') {
                 const crown = new THREE.Mesh(
                     new THREE.CylinderGeometry(0.42, 0.34, 0.32, 6),
                     new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.35, metalness: 0.7 })
                 );
-                crown.position.y = 3.05;
-                bodyPivot.add(crown);
+                crown.position.y = 0.63;
+                headPivot.add(crown);
             } else if (accessory === 'visor') {
                 const visor = new THREE.Mesh(
                     new THREE.BoxGeometry(0.86, 0.24, 0.35),
                     new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x06b6d4, emissiveIntensity: 0.8 })
                 );
-                visor.position.set(0, 2.48, 0.42);
-                bodyPivot.add(visor);
+                visor.position.set(0, 0.06, 0.42);
+                headPivot.add(visor);
             } else if (accessory === 'headphones') {
                 const band = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.07, 10, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-                band.position.y = 2.45;
+                band.position.y = 0.03;
                 const cupL = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.14, 16), new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.5 }));
-                cupL.rotation.z = Math.PI / 2; cupL.position.set(-0.6, 2.42, 0);
+                cupL.rotation.z = Math.PI / 2; cupL.position.set(-0.6, 0, 0);
                 const cupR = cupL.clone(); cupR.position.x = 0.6;
-                bodyPivot.add(band, cupL, cupR);
+                headPivot.add(band, cupL, cupR);
             } else if (accessory === 'halo') {
                 const halo = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 10, 28), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
                 halo.rotation.x = Math.PI / 2;
-                halo.position.y = 3.25;
-                bodyPivot.add(halo);
+                halo.position.y = 0.83;
+                headPivot.add(halo);
             } else if (accessory === 'tophat') {
                 const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 0.08, 20), pantsMat);
-                brim.position.y = 2.95;
+                brim.position.y = 0.53;
                 const top = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.65, 20), pantsMat);
-                top.position.y = 3.3;
-                bodyPivot.add(brim, top);
+                top.position.y = 0.88;
+                headPivot.add(brim, top);
             }
 
             // Articulated Arms (pivoted at shoulders)
@@ -550,6 +583,7 @@
             const handL = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), skinMat);
             handL.position.y = -0.78;
             armLPivot.add(armLMesh, handL);
+            if (isSleeping) { armLPivot.rotation.x = -0.35; armLPivot.rotation.z = 0.2; }
             bodyPivot.add(armLPivot);
 
             const armRPivot = new THREE.Group();
@@ -557,30 +591,47 @@
             const armRMesh = armLMesh.clone();
             const handR = handL.clone();
             armRPivot.add(armRMesh, handR);
+            if (isSleeping) { armRPivot.rotation.x = -0.35; armRPivot.rotation.z = -0.2; }
             bodyPivot.add(armRPivot);
 
-            // Articulated Legs (pivoted at hips)
+            // Articulated Legs (sitting forward if sleeping)
             const legLPivot = new THREE.Group();
             legLPivot.position.set(-0.24, 0.8, 0);
             const legLMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.76, 12), pantsMat);
             legLMesh.position.y = -0.38;
             legLPivot.add(legLMesh);
+            if (isSleeping) { legLPivot.rotation.x = -Math.PI / 2 + 0.12; legLPivot.rotation.z = 0.15; }
             bodyPivot.add(legLPivot);
 
             const legRPivot = new THREE.Group();
             legRPivot.position.set(0.24, 0.8, 0);
             const legRMesh = legLMesh.clone();
             legRPivot.add(legRMesh);
+            if (isSleeping) { legRPivot.rotation.x = -Math.PI / 2 + 0.12; legRPivot.rotation.z = -0.15; }
             bodyPivot.add(legRPivot);
 
+            // Floating Zzz sprites for sleeping offline studios
+            const zzzSprites = [];
+            if (isSleeping) {
+                ['Z', 'z', 'z'].forEach((ch, idx) => {
+                    const zSpr = createZzzSprite(ch);
+                    zSpr.position.set(0.45, 2.7 + idx * 0.5, 0.2);
+                    group.add(zSpr);
+                    zzzSprites.push({ sprite: zSpr, offset: idx * 0.33 });
+                });
+            }
+
             // Nameplate
-            const plate = createNameplate(playerData.name || 'Player', shirtHex);
+            const labelText = isSleeping ? `${playerData.name || 'Studio'} (zzz)` : (playerData.name || 'Player');
+            const plate = createNameplate(labelText, isSleeping ? '#64748b' : shirtHex);
+            if (isSleeping) plate.position.y = 3.15;
             group.add(plate);
 
             group.userData = {
-                bodyPivot, armLPivot, armRPivot, legLPivot, legRPivot,
+                bodyPivot, headPivot, armLPivot, armRPivot, legLPivot, legRPivot,
                 plate, bubble: null, bubbleUntil: 0,
                 emote: null, emoteUntil: 0, walkPhase: 0,
+                isSleeping, zzzSprites,
                 data: { ...playerData },
             };
             scene.add(group);
@@ -665,19 +716,17 @@
                     residentNPCs.delete(id);
                 }
             }
-            // Add new real registered studio residents
+            // Add new real registered studio residents (sleeping peacefully until they come online!)
             (list || []).forEach(r => {
                 if (residentNPCs.has(r.id)) return;
-                const mesh = createMiiAvatar(r);
+                const mesh = createMiiAvatar(r, true);
                 mesh.position.set(r.x, 0, r.z);
+                mesh.rotation.y = Math.atan2(-r.x, -r.z); // Face toward the central plaza monument
                 residentNPCs.set(r.id, {
                     mesh,
                     x: r.x,
                     z: r.z,
-                    targetX: r.x + (Math.random() - 0.5) * 16,
-                    targetZ: r.z + (Math.random() - 0.5) * 16,
-                    waitUntil: performance.now() + 1000 + Math.random() * 3000,
-                    wavedAtPlayerAt: 0,
+                    phase: Math.random() * Math.PI * 2,
                     data: r,
                 });
             });
@@ -1087,43 +1136,26 @@
                 animateAvatarLimbs(rp.mesh, moving, dt, now);
             }
 
-            // Wii Mii-Style Strolling Registered Studio Residents
+            // Sleeping Offline Registered Studio Residents (gentle breathing + rising Zzz)
             for (const res of residentNPCs.values()) {
-                const pDx = localPlayer.x - res.x;
-                const pDz = localPlayer.z - res.z;
-                const distToPlayer = Math.hypot(pDx, pDz);
-
-                if (distToPlayer < 7.5 && now - res.wavedAtPlayerAt > 12000) {
-                    // Turn toward visitor and wave!
-                    res.wavedAtPlayerAt = now;
-                    res.waitUntil = now + 2600;
-                    res.mesh.rotation.y = Math.atan2(pDx, pDz);
-                    res.mesh.userData.emote = 'wave';
-                    res.mesh.userData.emoteUntil = now + 2200;
+                const u = res.mesh.userData;
+                if (!u) continue;
+                const t = now * 0.0018 + res.phase;
+                // Gentle breathing & sleepy head nod
+                u.bodyPivot.position.y = -0.52 + Math.sin(t) * 0.03;
+                if (u.headPivot) {
+                    u.headPivot.rotation.x = 0.25 + Math.sin(t * 0.9) * 0.14;
+                    u.headPivot.rotation.z = Math.cos(t * 0.6) * 0.08;
                 }
-
-                let isStrolling = false;
-                if (now > res.waitUntil) {
-                    const dx = res.targetX - res.x;
-                    const dz = res.targetZ - res.z;
-                    const d = Math.hypot(dx, dz);
-                    if (d < 0.8) {
-                        // Pick next strolling spot inside the plaza
-                        const angle = Math.random() * Math.PI * 2;
-                        const rad = 11 + Math.random() * 34;
-                        res.targetX = Math.cos(angle) * rad;
-                        res.targetZ = Math.sin(angle) * rad;
-                        res.waitUntil = now + 2000 + Math.random() * 3500;
-                    } else {
-                        const strollSpeed = 3.2;
-                        res.x += (dx / d) * strollSpeed * dt;
-                        res.z += (dz / d) * strollSpeed * dt;
-                        res.mesh.rotation.y = Math.atan2(dx, dz);
-                        isStrolling = true;
-                    }
-                }
-                res.mesh.position.set(res.x, 0, res.z);
-                animateAvatarLimbs(res.mesh, isStrolling, dt, now);
+                // Rising Z z z sprites
+                (u.zzzSprites || []).forEach(z => {
+                    const cycle = ((now * 0.00045) + z.offset + res.phase * 0.1) % 1;
+                    z.sprite.position.y = 2.35 + cycle * 1.9;
+                    z.sprite.position.x = 0.35 + Math.sin(cycle * Math.PI * 2) * 0.25;
+                    const scale = 0.38 + cycle * 0.45;
+                    z.sprite.scale.set(scale, scale, 1);
+                    z.sprite.material.opacity = cycle < 0.2 ? (cycle / 0.2) : (1 - cycle);
+                });
             }
 
             // Particle Bursts
