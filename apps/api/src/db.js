@@ -25,6 +25,7 @@ const defaultSchema = {
     ledger: [],
     matchCounts: {},
     generationCounts: {},
+    datastores: {},
 };
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -339,6 +340,35 @@ class PersistentDB {
         this.data.ledger.unshift(tx);
         if (this.data.ledger.length > 500) this.data.ledger.pop();
         this.save();
+    }
+
+    // CLOUD DATASTORE (Per-Studio Key-Value JSON Storage)
+    _dsPath(studioId, store, key) {
+        const cleanStore = String(store || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'default';
+        const cleanKey = String(key || '').replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 80) || 'root';
+        return `${studioId}:${cleanStore}:${cleanKey}`;
+    }
+
+    getDatastoreEntry(studioId, store, key) {
+        if (!this.data.datastores || typeof this.data.datastores !== 'object') this.data.datastores = {};
+        return this.data.datastores[this._dsPath(studioId, store, key)] || null;
+    }
+
+    setDatastoreEntry(studioId, store, key, value) {
+        if (!this.data.datastores || typeof this.data.datastores !== 'object') this.data.datastores = {};
+        const entry = { value, updatedAt: Date.now() };
+        this.data.datastores[this._dsPath(studioId, store, key)] = entry;
+        this.save();
+        return entry;
+    }
+
+    deleteDatastoreEntry(studioId, store, key) {
+        if (!this.data.datastores || typeof this.data.datastores !== 'object') return false;
+        const p = this._dsPath(studioId, store, key);
+        if (!(p in this.data.datastores)) return false;
+        delete this.data.datastores[p];
+        this.save();
+        return true;
     }
 
     // CLEAR / RESET (Scoped by studioId if provided)

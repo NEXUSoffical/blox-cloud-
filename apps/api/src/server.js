@@ -581,6 +581,33 @@ app.get('/api/v1/telemetry/overview', requireSession, (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
+// CLOUD DATASTORE API (Persistent Per-Studio JSON Key-Value Storage)
+// -----------------------------------------------------------------------------
+
+app.get('/api/v1/datastore/:store/:key', requireGameKey, (req, res) => {
+    const entry = db.getDatastoreEntry(req.user.id, req.params.store, req.params.key);
+    if (!entry) {
+        return res.json({ found: false, store: req.params.store, key: req.params.key, value: null });
+    }
+    res.json({ found: true, store: req.params.store, key: req.params.key, value: entry.value, updatedAt: entry.updatedAt });
+});
+
+app.put('/api/v1/datastore/:store/:key', requireGameKey, (req, res) => {
+    const value = req.body && Object.prototype.hasOwnProperty.call(req.body, 'value') ? req.body.value : req.body;
+    const serialized = JSON.stringify(value ?? null);
+    if (serialized.length > 512 * 1024) {
+        return res.status(413).json({ error: 'Datastore value exceeds 512KB limit.' });
+    }
+    const entry = db.setDatastoreEntry(req.user.id, req.params.store, req.params.key, value ?? null);
+    res.json({ success: true, store: req.params.store, key: req.params.key, updatedAt: entry.updatedAt });
+});
+
+app.delete('/api/v1/datastore/:store/:key', requireGameKey, (req, res) => {
+    const deleted = db.deleteDatastoreEntry(req.user.id, req.params.store, req.params.key);
+    res.json({ success: true, deleted });
+});
+
+// -----------------------------------------------------------------------------
 // DISCORD SRE WEBHOOK ALERTS CONFIGURATION
 // -----------------------------------------------------------------------------
 
