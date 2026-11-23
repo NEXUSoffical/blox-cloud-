@@ -889,6 +889,23 @@ app.get('/api/v1/matchmaking/stats', requireSession, (req, res) => {
     res.json(matchmaker.getStats(studioId));
 });
 
+// Direct server-side match recording (for games with custom/private 1v1 lobbies like MindDrop)
+app.post('/api/v1/matchmaking/record', requireGameKey, (req, res) => {
+    const studioId = req.user.id;
+    const { queueType = '1v1_duel', players = [] } = req.body || {};
+    if (!Array.isArray(players) || players.length < 2) {
+        return res.status(400).json({ error: 'At least 2 players are required to record a match.' });
+    }
+    const tickets = players.slice(0, 16).map((p, i) => ({
+        userId: String(p.userId || `p_${i}`),
+        username: String(p.username || 'Player').slice(0, 32),
+        rating: Number(p.rating) || 0,
+        status: 'MATCHED',
+    }));
+    const match = matchmaker.createMatch(String(queueType).slice(0, 32), tickets, studioId);
+    res.json({ success: true, match });
+});
+
 // LIVEOPS & FEATURE FLAGS
 app.get('/api/v1/liveops/config', requirePublicReadOrServerAuth, (req, res) => {
     const studioId = req.user.id;
